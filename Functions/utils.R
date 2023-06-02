@@ -44,8 +44,8 @@ disthyperparamPost <- function(hyperparamPost,hyperparamPostOld){
 reorderBlocks  <- function(hyperparamPost, collecTau ,model){
   
   meanPost <- hyperparamPost$connectParam$alpha / (hyperparamPost$connectParam$alpha + hyperparamPost$connectParam$beta)
-  SumDiag <- sum(diag(meanPost)); 
-  ord <- order(SumDiag,decreasing = TRUE)
+  alphaDiag <- diag(meanPost); 
+  ord <- order(alphaDiag,decreasing = TRUE)
   hyperparamPost$connectParam <- lapply(hyperparamPost$connectParam,function(u){u[ord,ord]})
   if(model == 'iidColSBM'){  
     hyperparamPost$blockProp  <- hyperparamPost$blockProp[ord]

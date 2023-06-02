@@ -4,8 +4,11 @@
 #############################################################################
 rParamZ <- function(MC, hyperparam, emissionDist, model ,nbNodes){
   
+  if( !(model %in% c('piColSBM','iidColSBM'))){stop('Mispecified model')}
+  if( !(emissionDist %in% c('poisson','bernoulli'))){stop('Mispecified emission distribution')}
+  
   K  <- nrow(hyperparam$connectParam$alpha)
-  M <- nrow(nbNodes)
+  M <- length(nbNodes)
   
   collecTau <- hyperparam$collecTau
   
@@ -66,6 +69,11 @@ rParamZ <- function(MC, hyperparam, emissionDist, model ,nbNodes){
 # COND log lik
 #############################################################################
 condLogLik = function(data, H.mc,emissionDist){
+  
+
+  if( !(emissionDist %in% c('poisson','bernoulli'))){stop('Mispecified emission distribution')}
+  
+  
   M <- data$M; 
   collecNetworks <- data$collecNetworks
   if(emissionDist == 'bernoulli'){
@@ -92,6 +100,8 @@ condLogLik = function(data, H.mc,emissionDist){
 
 likelihood <- function(data, HSample,emissionDist){
   # cat('likelihood ')
+  if( !(emissionDist %in% c('poisson','bernoulli'))){stop('Mispecified emission distribution')}
+  
   MC <- dim(HSample$connectParamSample)[3]
  
   #------------------------------------
@@ -116,6 +126,8 @@ likelihood <- function(data, HSample,emissionDist){
 #-----------------------------------------------------------------------
 logDistConnectParam <- function(HSample,MC, hyperparam,emissionDist){
   # 
+  if( !(emissionDist %in% c('poisson','bernoulli'))){stop('Mispecified emission distribution')}
+  
   if(emissionDist=='bernoulli'){
     res <- vapply(1:MC,function(mc){
       sum(dbeta(HSample$connectParamSample[,,mc],hyperparam$connectParam$alpha,hyperparam$connectParam$beta,log = TRUE))
@@ -133,6 +145,7 @@ logDistConnectParam <- function(HSample,MC, hyperparam,emissionDist){
 #-----------------------------------------------------------------------
 logDirichletBlockProp <- function(HSample,MC, hyperparam,model){
  
+  if( !(model %in% c('piColSBM','iidColSBM'))){stop('Mispecified model')}
   
   if (model=='piColSBM'){
     res <- vapply(1:MC,function(mc){sum(log(ddirichlet(HSample$blockPropSample[,,mc],hyperparam$blockProp)))},0)
@@ -147,7 +160,9 @@ logDirichletBlockProp <- function(HSample,MC, hyperparam,model){
 
 #-----------------------------------------------------------------------
 logMultinomZ <- function(HSample, M, MC, hyperparam,model){
-
+  
+  if( !(model %in% c('piColSBM','iidColSBM'))){stop('Mispecified model')}
+  
  res.m  = rep(0,MC)
  for (m in 1:M){
      Zsample.m <-HSample$ZSample[[m]]
@@ -167,6 +182,9 @@ logMultinomZ <- function(HSample, M, MC, hyperparam,model){
 #-----------------------------------------------------------------------
 logJointParamZ <- function(HSample,M, MC, hyperparam,emissionDist,model){
  
+  if( !(model %in% c('piColSBM','iidColSBM'))){stop('Mispecified model')}
+  if( !(emissionDist %in% c('poisson','bernoulli'))){stop('Mispecified emission distribution')}
+  
   a <- logDistConnectParam(HSample,MC, hyperparam,emissionDist)
   b <- logDirichletBlockProp(HSample,MC, hyperparam,model)
   c <- logMultinomZ(HSample, M, MC, hyperparam,model) 

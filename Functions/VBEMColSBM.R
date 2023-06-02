@@ -1,5 +1,8 @@
 VBEMColSBM = function(collecNetworks,hyperparamPrior,collecTau,estimOptions, emissionDist, model ){
 
+  #
+  if( !(model %in% c('piColSBM','iidColSBM'))){stop('Mispecified model')}
+  if( !(emissionDist %in% c('poisson','bernoulli'))){stop('Mispecified emission distribution')}
   
   if(is.null(estimOptions)){
     estimOptions <- list(maxIterVB = 100,
@@ -52,6 +55,8 @@ VBEMColSBM = function(collecNetworks,hyperparamPrior,collecTau,estimOptions, emi
 ###############################################################
 Mstep <- function(collecNetworks,M, nbNodes,collecTau,hyperparamPrior,emissionDist, model){
   
+  if( !(model %in% c('piColSBM','iidColSBM'))){stop('Mispecified model')}
+  if( !(emissionDist %in% c('poisson','bernoulli'))){stop('Mispecified emission distribution')}
   
   hyperparamPost <- hyperparamPrior
   S <- lapply(1:M,function(m){t(collecTau[[m]]) %*% matrix(1,nbNodes[m],nbNodes[m]) %*% collecTau[[m]]})
@@ -75,16 +80,21 @@ Mstep <- function(collecNetworks,M, nbNodes,collecTau,hyperparamPrior,emissionDi
 ############################################################
 ####################" MSTEP from CollecTau to hyperparamPost
 ###############################################################
-Estep <- function(collecNetworks,M, nNodes,K,collecTau,hyperparamPost,estimOptions,emissionDist, model){
+Estep <- function(collecNetworks,M, nNodes,K,collecTau,hyperparamPost,estimOptions,emissionDist,model){
+  
+  if( !(model %in% c('piColSBM','iidColSBM'))){stop('Mispecified model')}
+  if( !(emissionDist %in% c('poisson','bernoulli'))){stop('Mispecified emission distribution')}
   
   iterVE <- 0
   stopVE <- 0
   
-  while ((iterVE < estimOptions$maxIterVE) & (stopVE == 0)){
-    collecTauOld <- collecTau #useful ?
-    if(K  == 1){for (m in 1:M){collecTau[[m]] <-  matrix(1,ncol  = 1,nrow = nRow[m])}}
-    if (K>1) {
-    ## useful quantities
+  #---------------------- if K = 1 groupe 
+  if(K  == 1){for (m in 1:M){collecTau[[m]] <-  matrix(1,ncol  = 1,nrow = nRow[m])}}
+  if(K > 1){ #--------------------------- K>1 
+    
+    while ((iterVE < estimOptions$maxIterVE) & (stopVE == 0)){
+      collecTauOld <- collecTau  
+      ## useful quantities
       DiGAlpha <- digamma(hyperparamPost$connectParam$alpha) ### useful for Poisson and Bernoulli
       if(emissionDist == 'bernoulli'){
         DiGBeta <- digamma(hyperparamPost$connectParam$beta) 
@@ -99,35 +109,43 @@ Estep <- function(collecNetworks,M, nNodes,K,collecTau,hyperparamPost,estimOptio
           DiblockProp_m <- digamma(hyperparamPost$blockProp[m,]) - digamma(sum(hyperparamPost$blockProp[m,]))
         }
         l3_m  <- matrix(DiblockProp_m,nrow = nbNodes[m],ncol = K,byrow = TRUE)
-        if(emissionDist == 'poisson'){
-            lY_m  <- collecNetworks[[m]] %*% tcrossprod(collecTau[[m]],log(hyperparamPost$connectParam$beta) + DiGAlpha)  
-            lY_m <- lY_m - matrix(1,nbNBodes[m], nbNodes[m])  %*% tcrossprod(collecTau[[m]],hyperparamPost$connectParam$alpha/hyperparamPost$connectParam$beta)
-        }
         if(emissionDist == 'bernoulli'){
           lY_m  <- collecNetworks[[m]] %*% tcrossprod(collecTau[[m]],DiGAlpha- DiGAlphaBeta)  +  (1-collecNetworks[[m]]) %*% tcrossprod(collecTau[[m]],DiGBeta- DiGAlphaBeta)
         }
         
+        if(emissionDist == 'poisson'){
+          lY_m  <- collecNetworks[[m]] %*% tcrossprod(collecTau[[m]],log(hyperparamPost$connectParam$beta) + DiGAlpha)  
+          lY_m <- lY_m - matrix(1,nbNodes[m], nbNodes[m])  %*% tcrossprod(collecTau[[m]],hyperparamPost$connectParam$alpha/hyperparamPost$connectParam$beta)
+        }
         collecTau[[m]] <- fromBtoTau(lY_m + l3_m) 
       }
-
-    deltaTau <- distTau(collecTau,collecTauOld)
-    if (deltaTau < estimOptions$valStopCritVE) {stopVE <- 1}
-    iterVE <- iterVE + 1
-    noConvergence <- 1*(iterVE  == estimOptions$maxIterVE)
-  }
-  
+      
+      deltaTau <- distTau(collecTau,collecTauOld)
+      if (deltaTau < estimOptions$valStopCritVE) {stopVE <- 1}
+      iterVE <- iterVE + 1
+      noConvergence <- 1*(iterVE  == estimOptions$maxIterVE)
+    }#-------------- fin while VE point fixe
+  } #--------------------------- Fin K>1 
   return(list(collecTau = collecTau,noConvergence  = noConvergence))
-  }
+}
+
   
   
 
 ############################## log marg likelihood
 computeLogLikMarg_VB <- function(collecNetworks, collecTau, hyperparamPrior, emissionDist, model){
   
+  if( !(model %in% c('piColSBM','iidColSBM'))){stop('Mispecified model')}
+  if( !(emissionDist %in% c('poisson','bernoulli'))){stop('Mispecified emission distribution')}
+  
+  
+  
   M <- length(collecNetworks)
+  K <- dim(collecTau[[1]])[2]
   collecZMAP <- lapply(collecTau,function(tau.m){
     indZ <- tau.m
-    indZ <- t(sapply(1:nrow(tau.m),function(i){u <- 0*tau.m[i,]; u[which.max(tau.m[i,])]=1; return(u)}))
+    n.m <- nrow(tau.m)
+    indZ <- t(sapply(1: n.m ,function(i){u <- rep(0,K); u[which.max(tau.m[i,])]=1; return(u)}))
     if(min(dim(indZ))==1){indZ = matrix(indZ,ncol=1)}
     return(indZ)
   })
