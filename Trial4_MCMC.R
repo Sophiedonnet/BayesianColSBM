@@ -88,22 +88,28 @@ mc <- 1
 H.mc.sim <- list(connectParam = HSample$connectParamSample[,,mc])
 H.mc.sim$Z <- lapply(1:M, function(m){HSample$ZSample[[m]][,,mc]})
 if (model == 'iidColSBM'){
-  H.mc.sim$blockProp <- HSample$blockPropSample[,mc]
+  H.mc.sim$blockProp <- HSample$blockPropSample[,1]
 }
 if (model == 'piColSBM'){
-  H.mc.sim$blockProp <-  HSample$blockPropSample[,,mc]
+  H.mc.sim$blockProp <-  HSample$blockPropSample[,,1]
 }
 
   
 ###################### Estim avec Kcol K true
 
-paramsMCMC = list(nbIterMCMC = 10000)
+paramsMCMC = list(nbIterMCMC = 5000)
 H.mc.init <- H.mc.sim
-paramsMCMC$opEchan = list(connectParam = TRUE, blockProp = TRUE, Z = TRUE)
+paramsMCMC$opEchan = list(connectParam = FALSE, blockProp = FALSE, Z = TRUE)
 if (!paramsMCMC$opEchan$connectParam){H.mc.init$connectParam <- connectParamTrue$mean}
 if (!paramsMCMC$opEchan$blockProp){H.mc.init$blockProp <- blockPropTrue}
-if(!paramsMCMC$opEchan$Z){for (m in 1:M){H.mc.init$Z[[m]] <-mySampler[[m]]$indMemberships}}
-
+if(!paramsMCMC$opEchan$Z){
+  for (m in 1:M){
+    Z.m <- mySampler[[m]]$memberships
+    n.m <- length(Z.m)
+    H.mc.init$Z[[m]] = matrix(0,nrow = n.m,ncol = K) 
+    for (i in 1:n.m){H.mc.init$Z[[m]][i,Z.m[i]] = 1}
+  }
+}
 
 resMCMC <- MCMCKernel(mydata, H.mc.init, alpha.t = 1, hyperparamPrior,hyperparamApproxPost = NULL, emissionDist = 'bernoulli', model =  'piColSBM',paramsMCMC, opSave= TRUE)
 
@@ -116,25 +122,17 @@ resMCMC$seqZ[[m]][,,1][1:10,]
 hyperparamApproxPost$collecTau[[m]][1:10,]
 
 
-apply(resMCMC$seqZ[[m]]$col[,,extr],c(1,2),mean)[1:10,]
-resMCMC$seqZ[[m]]$col[,,1][1:10,]
-hyperparamApproxPost$collecTau[[m]]$col[1:10,]
-
-par(mfrow=c(K,KCol))
+par(mfrow=c(K,K))
 for (k in 1:K){
-  for (l in 1:KCol){
- #   if ((k ==1) & (l==1)){
-      plot(density(resMCMC$seqConnectParam[k,l,extr]),main='alpha',xlim=c(0,1),col='green')
-#    }else{
-#      lines(density(resMCMC$seqConnectParam[k,l,extr]))  
-#      }
+  for (l in 1:K){
+    plot(density(resMCMC$seqConnectParam[k,l,extr]),main='alpha',xlim=c(0,1),col='green')
     curve(dbeta(x,hyperparamApproxPost$connectParam$alpha[k,l],hyperparamApproxPost$connectParam$beta[k,l]),col='red',add=TRUE)
-    abline(v = connectParamTrue$mean)
+    abline(v = connectParamTrue$mean[k,l])
   }
 }
 
 #------------------------------------ 
-if(model=="iidColBipartiteSBM"){
+if(model=="iidColSBM"){
   par(mfrow=c(1,1))
   for (k in 1:K){
     if (k ==1){plot(density(resMCMC$seqBlockProp[k,extr]),main='pi_k',xlim = c(0,1),col='green')
@@ -144,19 +142,9 @@ if(model=="iidColBipartiteSBM"){
     curve(dbeta(x,hyperparamApproxPost$blockProp[k], sum(hyperparamApproxPost$blockProp)-hyperparamApproxPost$blockProp[k]),col='red',add=TRUE)
     abline(v = blockPropTrue[1,k])
   }
-  
-  for (l in 1:KCol){
-    if (l ==1){plot(density(resMCMC$seqBlockProp$col[l,extr]),main='rho_k',xlim = c(0,1),col='green')
-    }else{
-      lines(density(resMCMC$seqBlockProp$col[l,extr]),col='green')
-    }  
-    curve(dbeta(x,hyperparamApproxPost$blockProp$col[l], sum(hyperparamApproxPost$blockProp$col)-hyperparamApproxPost$blockProp$col[l]),col='red',add=TRUE)
-    abline(v = blockPropTrue$col[1,l])
-  }
-  
 }
 
-if(model=="piColBipartiteSBM"){
+if(model=="piColSBM"){
   par(mfrow=c(floor(M/2)+1,2))
   for (m in 1:M){
     for (k in 1:K){
@@ -168,17 +156,6 @@ if(model=="piColBipartiteSBM"){
     abline(v = blockPropTrue[m,k])
     }
   }  
-  par(mfrow=c(floor(M/2)+1,2))
-  for (m in 1:M){
-    for (k in 1:KCol){
-      if (k ==1){plot(density(resMCMC$seqBlockProp$col[m,k,extr]),main='pi_k',xlim = c(0,1),col='green')
-      }else{
-        lines(density(resMCMC$seqBlockProp$col[m,k,extr]),col='green')
-      }  
-      curve(dbeta(x,hyperparamApproxPost$blockProp$col[m,k], sum(hyperparamApproxPost$blockProp$col[m,])-hyperparamApproxPost$blockProp$col[m,k]),col='red',add=TRUE)
-      abline(v = blockPropTrue$col[m,k])
-    }
-  }
 }
 
 

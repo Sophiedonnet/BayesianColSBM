@@ -32,13 +32,13 @@ MCMCKernel <- function(data, H.mc.init, alpha.t, hyperparamPrior,hyperparamAppro
     hyperparamApproxPost <- hyperparamPrior
     hyperparamApproxPost$collecTau <- vector('list',data$M)
     for (m in 1:M){
-      if(model=='iidColBipartiteSBM'){
+      if(model=='iidColSBM'){
         pi.m <- hyperparamPrior$blockProp
       }
-      if (model=='piColBipartiteSBM'){
+      if (model=='piColSBM'){
         pi.m <- hyperparamPrior$blockProp[m,]
       }
-    hyperparamApproxPost$collecTau[[m]] <- matrix(pi.m ,nbNodes[m],K,byrow = TRUE)
+      hyperparamApproxPost$collecTau[[m]] <- matrix(pi.m ,nbNodes[m],K,byrow = TRUE)
     }
   }
   B <- paramsMCMC$nbIterMCMC
@@ -49,29 +49,30 @@ MCMCKernel <- function(data, H.mc.init, alpha.t, hyperparamPrior,hyperparamAppro
   }
   
   
- 
+  
   # save
   if (opSave){
-    seqConnectParam = array(0,c(K,K,1+B))
+    seqConnectParam = array(0,c(K,K,B))
     seqConnectParam[,,1] = H.mc$connectParam
-    seqZ  = lapply(1:M,function(m){array(0,c(nbNodes[m],K,1+B))})
+    seqZ  = lapply(1:M,function(m){array(0,c(nbNodes[m],K,B))})
     for (m in 1:M){
       seqZ[[m]][,,1] = H.mc$Z[[m]]
     }
-    if(model=='iidColBipartiteSBM'){
-      seqBlockProp = matrix(0,K,1+B)
+    if(model=='iidColSBM'){
+      seqBlockProp = matrix(0,K,B)
       seqBlockProp[,1] = H.mc$blockProp
     }
-    if(model=='piColBipartiteSBM'){
-      seqBlockProp = array(0,c(M,K,1+ B))
+    if(model=='piColSBM'){
+      seqBlockProp = array(0,c(M,K, B))
       seqBlockProp[,,1] = H.mc$blockProp
     }
   }
-    
-    
   
-  for (iterMCMC in 2:(1+B)){
   
+  
+  for (iterMCMC in 2:B){
+    
+    print(iterMCMC)
     ################################################
     ############# simulation of connectParam
     ################################################
@@ -85,9 +86,8 @@ MCMCKernel <- function(data, H.mc.init, alpha.t, hyperparamPrior,hyperparamAppro
       if(emissionDist == 'bernoulli'){H.mc$connectParam <- matrix(rbeta(K^2,alpha_sim,beta_sim),K,K)}
       if(emissionDist == 'poisson'){H.mc$connectParam <- matrix(rgamma(K^2,alpha_sim,beta_sim),K,K)}
       
-      if(opSave){seqConnectParam[,,iterMCMC] <- H.mc$connectParam}
     }
-  
+    
     ################################################
     ############# simulation of blockParam
     ################################################
@@ -95,24 +95,17 @@ MCMCKernel <- function(data, H.mc.init, alpha.t, hyperparamPrior,hyperparamAppro
     if (opEchan$blockProp == 1) {
       
       S  <- t(sapply(1:M, function(m){colSums(H.mc$Z[[m]])}))
-
-      if(model=='iidColBipartiteSBM'){
+      
+      if(model=='iidColSBM'){
         e <- alpha.t*(colSums(S) + hyperparamPrior$blockProp) + (1 - alpha.t) * hyperparamApproxPost$blockProp
         H.mc$blockProp <- c(rdirichlet(1,e))
-
-        if(opSave){
-          seqBlockProp[,iterMCMC] = H.mc$blockProp 
-        }
       }
-      if(model=='piColBipartiteSBM'){
+      if(model=='piColSBM'){
         e <- alpha.t*(S + hyperparamPrior$blockProp) + (1 - alpha.t) * hyperparamApproxPost$blockProp
         H.mc$blockProp<- t(sapply(1:M,function(m){rdirichlet(1,e[m,])}))
-         if(opSave){
-          seqBlockProp[,,iterMCMC] = H.mc$blockProp 
-       
-        }
       }
     }
+    
     ################################################
     ############# simulation of Z 
     ################################################
@@ -120,35 +113,40 @@ MCMCKernel <- function(data, H.mc.init, alpha.t, hyperparamPrior,hyperparamAppro
     orderNetworks <-  sample(1:M,M,replace = FALSE)
     for (m in orderNetworks){ # for all networks
       
-      
-      ############ Zrow
-      if (opEchan$ZRow){  
-        if(model=='iidColBipartiteSBM'){piRow.m <- H.mc$blockProp}
-        if(model=='piColBipartiteSBM'){piRow.m <- H.mc$blockProp[m,]}
-        logZRow <-  matrix(log(piRow.m),nrow=nbNodes[m,1],ncol=KRow,byrow = TRUE)  
+      if (opEchan$Z){ 
+        n.m <- nbNodes[m]
+        orderNodes.m <- sample(1:n.m,n.m)
+        if(model=='iidColSBM'){log.pi.m <- log(H.mc$blockProp)}
+        if(model=='piColSBM'){log.pi.m <- log(H.mc$blockProp[m,])}
         
-        if(emissionDist == 'bernoulli'){
-          logYRow <- collecNetworks[[m]]%*%H.mc$Z[[m]]$col %*%t(log(H.mc$connectParam)) +   (1-collecNetworks[[m]])%*%H.mc$Z[[m]]$col %*%t(log(1-H.mc$connectParam))
-        }
-        if(emissionDist == 'poisson'){
-          logYRow <- collecNetworks[[m]]%*%H.mc$Z[[m]]$col %*%t(log(H.mc$connectParam))  - matrix(1,nbNodes[m,1],nbNodes[m,2]) %*%  H.mc$Z[[m]]$col %*% t(H.mc$connectParam)
-        }
-        logProbZRow  <- alpha.t * (logYRow + logZRow) + (1-alpha.t)*log(hyperparamApproxPost$collecTau[[m]] )
-        ProbZRow <- fromBtoTau(logProbZRow, eps = 10^-10)
-        H.mc$Z[[m]] <- t(sapply(1:nbNodes[m,1],function(i){rmultinom(1,size=1,prob = ProbZRow[i,])}))
-        if(opSave){
-          seqZ[[m]][,,iterMCMC] = H.mc$Z[[m]]
-        }
-      }
-      
+        log.tau.m <- log(hyperparamApproxPost$collecTau[[m]])
+        Y.m <- collecNetworks[[m]]
+        IY.m <- 1-Y.m
+        diag(IY.m) <- 0
+        for (i in orderNodes.m){ ### for any node
+          if(emissionDist == 'bernoulli'){
+            logYRow.i <- matrix(Y.m[i,],nrow = 1) %*%H.mc$Z[[m]] %*%t(log(H.mc$connectParam)) +   matrix(IY.m[i,],nrow=1)%*%H.mc$Z[[m]] %*%t(log(1-H.mc$connectParam))
+          }
+          logProbZRow.i  <- alpha.t * (logYRow.i + log.pi.m) + (1-alpha.t)*log.tau.m[i,]
+          ProbZRow.i <- c(fromBtoTau(matrix(logProbZRow.i,nrow = 1), eps = 10^-10))
+          H.mc$Z[[m]][i,] <- c(rmultinom(1,size=1,prob = ProbZRow.i))
+        } #end boucle sur nodes
+      }# end if echanZ  = TRUE
+    }# end boucle sur m 
+    
+    #############################################""   
+    if(opSave){
+      seqConnectParam[,,iterMCMC] <- H.mc$connectParam
+      if(model=='iidColSBM'){seqBlockProp[,iterMCMC] = H.mc$blockProp}
+      if(model=='piColSBM'){seqBlockProp[,,iterMCMC] = H.mc$blockProp}
+      for (m in 1:M){seqZ[[m]][,,iterMCMC] = H.mc$Z[[m]]}
     }
     
-      
-      
-  }
+  }# end boucle sur 
+  
   res <- H.mc
   if(opSave){res = list(H.mc = H.mc,seqConnectParam = seqConnectParam,seqBlockProp = seqBlockProp, seqZ = seqZ)}
   return(res)
 }
-      
+
 # cat('Fin MCM.Kernel')
