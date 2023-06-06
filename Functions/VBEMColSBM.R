@@ -8,7 +8,7 @@ VBEMColSBM = function(collecNetworks,hyperparamPrior,collecTau,estimOptions, emi
     estimOptions <- list(maxIterVB = 100,
                         maxIterVE = 100,
                         valStopCritVE = 10^-5,
-                        valStopCritVB = 10^-5)
+                        valStopCritVB = 10^-5, epsTau = 10^-5)
   } 
 
   
@@ -44,6 +44,7 @@ VBEMColSBM = function(collecNetworks,hyperparamPrior,collecTau,estimOptions, emi
     print(iterVB)
   }
   
+
   return(reorderBlocks(hyperparamPost, collecTau, model))
     
 
@@ -73,6 +74,9 @@ Mstep <- function(collecNetworks,M, nbNodes,collecTau,hyperparamPrior,emissionDi
   }
   if(model == 'piColSBM'){
     hyperparamPost$blockProp   <- hyperparamPrior$blockProp  + Rtau
+    if(M == 1){
+      hyperparamPost$blockProp <- matrix(hyperparamPost$blockProp,nrow=1)
+    }
   }
   return(hyperparamPost)
 }
@@ -117,7 +121,7 @@ Estep <- function(collecNetworks,M, nNodes,K,collecTau,hyperparamPost,estimOptio
           lY_m  <- collecNetworks[[m]] %*% tcrossprod(collecTau[[m]],log(hyperparamPost$connectParam$beta) + DiGAlpha)  
           lY_m <- lY_m - matrix(1,nbNodes[m], nbNodes[m])  %*% tcrossprod(collecTau[[m]],hyperparamPost$connectParam$alpha/hyperparamPost$connectParam$beta)
         }
-        collecTau[[m]] <- fromBtoTau(lY_m + l3_m) 
+        collecTau[[m]] <- fromBtoTau(lY_m + l3_m,eps = estimOptions$epsTau) 
       }
       
       deltaTau <- distTau(collecTau,collecTauOld)
@@ -126,6 +130,7 @@ Estep <- function(collecNetworks,M, nNodes,K,collecTau,hyperparamPost,estimOptio
       noConvergence <- 1*(iterVE  == estimOptions$maxIterVE)
     }#-------------- fin while VE point fixe
   } #--------------------------- Fin K>1 
+ 
   return(list(collecTau = collecTau,noConvergence  = noConvergence))
 }
 

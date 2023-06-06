@@ -25,7 +25,7 @@ set.seed(mySeed)
 ###########################################################################################
 ############# simulation 
 #############################################################################################
-M = 5
+M = 1
 K  = 4
  
 #-----  block proportions simul iidColSBM 
@@ -73,7 +73,8 @@ hyperparamPrior <- setHyperparamPrior(M,K, emissionDist, model)
 estimOptionsVBEM <- list(maxIterVB = 1000,
                          maxIterVE = 100,
                          valStopCritVE = 10^-10,
-                         valStopCritVB = 10^-10)
+                         valStopCritVB = 10^-10,
+                         epsTau = 10^-3)
 nbNodes <-  t(sapply(initSimple, function(sbm){sbm$nbNodes}))
 resEstimVBEM  <- VBEMColSBM(collecNetworks,hyperparamPrior,collecTau_init,estimOptions = estimOptionsVBEM, emissionDist, model)
 
@@ -89,23 +90,21 @@ hyperparamApproxPost$collecTau <- resEstimVBEM$collecTau
 #------------------  SMC 
 ###########################################################################################
 estimOptionsSMC = list()
-estimOptionsSMC$paramsMCMC <- list(nbIterMCMC=2)  
+estimOptionsSMC$paramsMCMC <- list(nbIterMCMC=5)  
 estimOptionsSMC$MC <- 1000
 estimOptionsSMC$ESS.rate <- 0.9
 estimOptionsSMC$cESS.rate <- 0.9
-estimOptionsSMC$opSave <- TRUE
-estimOptionsSMC$op.parallel  <- list(os =  .Platform$OS.type, mc.cores = 1); 
+estimOptionsSMC$opSave <- FALSE
+estimOptionsSMC$op.parallel  <- list(os =  .Platform$OS.type, mc.cores = 4); 
 estimOptionsSMC$op.print<- TRUE
 estimOptionsSMC$NB.iter.max  <- Inf # Inf
+
+#estimOptionsSMC$op.SMC.classic <- TRUE
+#resSMC_classic <- SMCColSBM(data = mydata,hyperparamPrior,hyperparamApproxPost = NULL, emissionDist, model, estimOptionsSMC)
+#save(mydata,resSMC,hyperparamApproxPost,file='myTrialSMCResults.Rdata')
+
 estimOptionsSMC$op.SMC.classic <- FALSE
-estimOptionsSMC$op.SMC.classic <- TRUE
-resSMC <- SMCColSBM(data = mydata,hyperparamPrior,hyperparamApproxPost = NULL, emissionDist, model, estimOptionsSMC)
-
-
-save(mydata,resSMC,hyperparamApproxPost,file='myTrialSMCResults.Rdata')
-
-estimOptionsSMC$op.SMC.classic <- TRUE
-resSCM_classic <- SMCColBipartiteSBM(data = mydata,hyperparamPrior,hyperparamApproxPost, emissionDist, model, estimOptionsSMC)
+resSCM <- SMCColSBM(data = mydata,hyperparamPrior,hyperparamApproxPost, emissionDist, model, estimOptionsSMC)
 
 plot(resSMC$alpha.vec,type='l')
 

@@ -52,6 +52,9 @@ reorderBlocks  <- function(hyperparamPost, collecTau ,model){
   }
   if(model == 'piColSBM'){
     hyperparamPost$blockProp <- hyperparamPost$blockProp[,ord]
+    if(M==1){
+      hyperparamPost$blockProp  <- matrix(hyperparamPost$blockProp ,nrow=1)
+    }
   }
   
   

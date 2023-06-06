@@ -72,7 +72,7 @@ MCMCKernel <- function(data, H.mc.init, alpha.t, hyperparamPrior,hyperparamAppro
   
   for (iterMCMC in 2:B){
     
-    print(iterMCMC)
+    #print(iterMCMC)
     ################################################
     ############# simulation of connectParam
     ################################################

@@ -30,9 +30,9 @@ print(blockProp)
 
 ########### block proportions simul piColSBM avec quasi même proba partout
 # blockProp  
-#blockProp  <-  rdirichlet(M,rep(5*K,K))  #### all with the same proba
-#blockProp[1,] <- rep(1/K,K) 
-# print(blockProp)
+blockProp  <-  rdirichlet(M,rep(5*K,K))  #### all with the same proba
+blockProp[1,] <- rep(1/K,K) 
+ print(blockProp)
 
 
 
@@ -87,7 +87,7 @@ KEstim <- initSimple[[myRef]]$nbBlocks[1]
 estimOptions <- list(maxIterVB = 1000,
                      maxIterVE = 100,
                      valStopCritVE = 10^-10,
-                     valStopCritVB = 10^-10)
+                     valStopCritVB = 10^-10,epsTau = 10^-10)
 
 
 
