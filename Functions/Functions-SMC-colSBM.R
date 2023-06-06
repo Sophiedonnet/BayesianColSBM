@@ -59,16 +59,13 @@ Func.resampling <- function(HSample,Resample,model) {
   
   HSample$connectParamSample = HSample$connectParamSample[,,Resample]
   for (m in 1:M){
-    HSample$ZSample[[m]]$row <-   HSample$ZSample[[m]]$row[,,Resample]
-    HSample$ZSample[[m]]$col <-   HSample$ZSample[[m]]$col[,,Resample]
+    HSample$ZSample[[m]] <-   HSample$ZSample[[m]][,,Resample]
   }
-  if(model=='iidColBipartiteSBM'){
-    HSample$blockPropSample$row <- HSample$blockPropSample$row[,Resample]
-    HSample$blockPropSample$col <- HSample$blockPropSample$col[,Resample]
+  if(model=='iidColSBM'){
+    HSample$blockPropSample <- HSample$blockPropSample[,Resample]
   }
-  if(model=='piColBipartiteSBM'){
-    HSample$blockPropSample$row <- HSample$blockPropSample$row[,,Resample]
-    HSample$blockPropSample$col <- HSample$blockPropSample$col[,,Resample]
+  if(model=='piColSBM'){
+    HSample$blockPropSample <- HSample$blockPropSample[,,Resample]
   }
   return(HSample)
 }
@@ -81,12 +78,12 @@ Func.resampling <- function(HSample,Resample,model) {
 
 Func.search <- function(HSample,mc,model) {
   H.mc <- list(connectParam = HSample$connectParamSample[,,mc])
-  H.mc$Z <- lapply(1:M, function(m){list(row = HSample$ZSample[[m]]$row[,,mc],col = HSample$ZSample[[m]]$col[,,mc])})
-  if (model == 'iidColBipartiteSBM'){
-    H.mc$blockProp <- list(row = HSample$blockPropSample$row[,mc],col = HSample$blockPropSample$col[,mc])
+  H.mc$Z <- lapply(1:M, function(m){HSample$ZSample[[m]][,,mc]})
+  if (model == 'iidColSBM'){
+    H.mc$blockProp <- HSample$blockPropSample[,mc]
   }
-  if (model == 'piColBipartiteSBM'){
-    H.mc$blockProp <- list(row = HSample$blockPropSample$row[,,mc],col = HSample$blockPropSample$col[,,mc])
+  if (model == 'piColSBM'){
+    H.mc$blockProp <- HSample$blockPropSample[,,mc]
   }
   return(H.mc)
 }
@@ -108,7 +105,7 @@ estim.loglikmarg.U = function(RES_SMC) {
 # SMC ############################################  SMC version 2
 #-----------------------------------------------------------------
 
-SMCColBipartiteSBM<- function(data,hyperparamPrior,hyperparamApproxPost, emissionDist, model, estimOptionsSMC){
+SMCColSBM<- function(data,hyperparamPrior,hyperparamApproxPost, emissionDist, model, estimOptionsSMC){
   
   
   paramsMCMC <- estimOptionsSMC$paramsMCMC  
@@ -123,8 +120,7 @@ SMCColBipartiteSBM<- function(data,hyperparamPrior,hyperparamApproxPost, emissio
   os  <- op.parallel$os
   
   #-------------------------- 
-  KRow <- nrow(hyperparamPrior$connectParam$alpha)
-  KCol <- ncol(hyperparamPrior$connectParam$alpha)
+  K  <- nrow(hyperparamPrior$connectParam$alpha)
   M <- data$M
   nbNodes <- data$nbNodes
   # ----------------- parameters of the SMC
@@ -233,11 +229,11 @@ SMCColBipartiteSBM<- function(data,hyperparamPrior,hyperparamApproxPost, emissio
       HNewSample$ZSample[[m]]$row <- vapply(1:MC,function(mc){OUTPUT_MCMC[[mc]]$Z[[m]]$row},matrix(0,nbNodes[m,1],KRow))
       HNewSample$ZSample[[m]]$col <- vapply(1:MC,function(mc){OUTPUT_MCMC[[mc]]$Z[[m]]$col},matrix(0,nbNodes[m,2],KCol))
     }
-    if(model=='iidColBipartiteSBM'){
+    if(model=='iidColSBM'){
       HNewSample$blockPropSample$row <- vapply(1:MC,function(mc){OUTPUT_MCMC[[mc]]$blockProp$row},rep(0,KRow))
       HNewSample$blockPropSample$col <- vapply(1:MC,function(mc){OUTPUT_MCMC[[mc]]$blockProp$col},rep(0,KCol))
     }
-    if(model=='piColBipartiteSBM'){
+    if(model=='piColSBM'){
       HNewSample$blockPropSample$row <- vapply(1:MC,function(mc){OUTPUT_MCMC[[mc]]$blockProp$row},matrix(0,M,KRow))
       HNewSample$blockPropSample$col <- vapply(1:MC,function(mc){OUTPUT_MCMC[[mc]]$blockProp$col},matrix(0,M,KCol))
     }

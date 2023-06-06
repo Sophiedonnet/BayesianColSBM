@@ -142,7 +142,7 @@ MCMCKernel <- function(data, H.mc.init, alpha.t, hyperparamPrior,hyperparamAppro
       for (m in 1:M){seqZ[[m]][,,iterMCMC] = H.mc$Z[[m]]}
     }
     
-  }# end boucle sur 
+  }# end boucle sur iterMCMC
   
   res <- H.mc
   if(opSave){res = list(H.mc = H.mc,seqConnectParam = seqConnectParam,seqBlockProp = seqBlockProp, seqZ = seqZ)}

@@ -51,8 +51,12 @@ nbNodes <- sample(10*c(5:10),M,replace = TRUE)
 
 mySampler <- lapply(1:M, function(m){sampleSimpleSBM(nbNodes = nbNodes[m], blockProp =  blockPropTrue[m,],  connectParamTrue,directed = TRUE)})
 collecNetworks <- lapply(mySampler,function(l){Net.m <- l$networkData; diag(Net.m) <- 0; Net.m})
+mydata <- list(collecNetworks = collecNetworks, M= M, nbNodes = nbNodes)
 
+
+#######################################################
 #--------------- init CollecTau
+##########################################################
 initSimple <- lapply(collecNetworks,estimateSimpleSBM)
 myRef = which.max(sum(t(sapply(initSimple,function(m){m$nbBlocks}))))
 collecTau_init <- initCollecTau(initSimple, ref = myRef)
@@ -80,10 +84,8 @@ hyperparamApproxPost$collecTau <- resEstimVBEM$collecTau
 
 
 ##################################
-mydata <- list(collecNetworks = collecNetworks, M= M, nbNodes = nbNodes)
 
-
-HSample <- rParamZ(200, hyperparam = hyperparamPrior , emissionDist, model ,nbNodes)
+HSample <- rParamZ(200, hyperparam = hyperparamPrior, emissionDist, model ,nbNodes)
 mc <- 1
 H.mc.sim <- list(connectParam = HSample$connectParamSample[,,mc])
 H.mc.sim$Z <- lapply(1:M, function(m){HSample$ZSample[[m]][,,mc]})
@@ -97,9 +99,9 @@ if (model == 'piColSBM'){
   
 ###################### Estim avec Kcol K true
 
-paramsMCMC = list(nbIterMCMC = 5000)
+paramsMCMC = list(nbIterMCMC = 2000)
 H.mc.init <- H.mc.sim
-paramsMCMC$opEchan = list(connectParam = FALSE, blockProp = FALSE, Z = TRUE)
+paramsMCMC$opEchan = list(connectParam = TRUE, blockProp = TRUE, Z = TRUE)
 if (!paramsMCMC$opEchan$connectParam){H.mc.init$connectParam <- connectParamTrue$mean}
 if (!paramsMCMC$opEchan$blockProp){H.mc.init$blockProp <- blockPropTrue}
 if(!paramsMCMC$opEchan$Z){
@@ -110,16 +112,23 @@ if(!paramsMCMC$opEchan$Z){
     for (i in 1:n.m){H.mc.init$Z[[m]][i,Z.m[i]] = 1}
   }
 }
+#hyperparamApproxPost = NULL
+alpha.t = 1
+data = mydata
+emissionDist = 'bernoulli'
+model =  'piColSBM'
+opSave = TRUE
 
 resMCMC <- MCMCKernel(mydata, H.mc.init, alpha.t = 1, hyperparamPrior,hyperparamApproxPost = NULL, emissionDist = 'bernoulli', model =  'piColSBM',paramsMCMC, opSave= TRUE)
 
-burnin  = 2500 
+burnin  = 1000 
 extr <- burnin:paramsMCMC$nbIterMCMC
 
 m = sample(1:M,1)
 apply(resMCMC$seqZ[[m]][,,extr],c(1,2),mean)[1:10,]
 resMCMC$seqZ[[m]][,,1][1:10,]
 hyperparamApproxPost$collecTau[[m]][1:10,]
+
 
 
 par(mfrow=c(K,K))
