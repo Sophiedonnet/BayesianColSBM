@@ -83,7 +83,7 @@ hyperparamApproxPost$collecTau <- resEstimVBEM$collecTau
 mydata <- list(collecNetworks = collecNetworks, M= M, nbNodes = nbNodes)
 
 
-HSample <- rParamZ(200, hyperparam = hyperparamPrior , emissionDist, model ,nbNodes)
+HSample <- rParamZ(200, hyperparam = hyperparamApproxPost , emissionDist, model ,nbNodes)
 mc <- 1
 H.mc.sim <- list(connectParam = HSample$connectParamSample[,,mc])
 H.mc.sim$Z <- lapply(1:M, function(m){HSample$ZSample[[m]][,,mc]})
@@ -99,7 +99,7 @@ if (model == 'piColSBM'){
 
 paramsMCMC = list(nbIterMCMC = 5000)
 H.mc.init <- H.mc.sim
-paramsMCMC$opEchan = list(connectParam = FALSE, blockProp = FALSE, Z = TRUE)
+paramsMCMC$opEchan = list(connectParam = TRUE, blockProp = TRUE, Z = TRUE)
 if (!paramsMCMC$opEchan$connectParam){H.mc.init$connectParam <- connectParamTrue$mean}
 if (!paramsMCMC$opEchan$blockProp){H.mc.init$blockProp <- blockPropTrue}
 if(!paramsMCMC$opEchan$Z){
@@ -127,7 +127,7 @@ for (k in 1:K){
   for (l in 1:K){
     plot(density(resMCMC$seqConnectParam[k,l,extr]),main='alpha',xlim=c(0,1),col='green')
     curve(dbeta(x,hyperparamApproxPost$connectParam$alpha[k,l],hyperparamApproxPost$connectParam$beta[k,l]),col='red',add=TRUE)
-    abline(v = connectParamTrue$mean[k,l])
+    abline(v = connectParamTrue$mean)
   }
 }
 
