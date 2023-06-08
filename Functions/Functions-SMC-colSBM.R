@@ -57,15 +57,20 @@ FindAlpha.cESS <- function(W.t.minus.1, log.rho, cESS.rate, alpha.t.minus.1, tol
 
 Func.resampling <- function(HSample,Resample,model) {
   
-  HSample$connectParamSample = HSample$connectParamSample[,,Resample]
+  New.HSample <- list()
+  New.HSample$connectParamSample = HSample$connectParamSample[,,Resample]
+  New.HSample$ZSample < list()
   for (m in 1:M){
-    HSample$ZSample[[m]] <-   HSample$ZSample[[m]][,,Resample]
+    New.HSample$ZSample[[m]] <-   HSample$ZSample[[m]][,,Resample]
   }
   if(model=='iidColSBM'){
-    HSample$blockPropSample <- HSample$blockPropSample[,Resample]
+    New.HSample$blockPropSample <- HSample$blockPropSample[,Resample]
   }
   if(model=='piColSBM'){
-    HSample$blockPropSample <- HSample$blockPropSample[,,Resample]
+    New.HSample$blockPropSample <-HSample$blockPropSample
+    for(m in 1:M){
+      New.HSample$blockPropSample[m,,] <- HSample$blockPropSample[m,,Resample]
+    }
   }
   return(HSample)
 }
@@ -143,7 +148,7 @@ SMCColSBM<- function(data,hyperparamPrior,hyperparamApproxPost, emissionDist, mo
   #--------------------- 
   alpha.vec <- c(alpha.t);
   vec.log.ratio.Z <- c(0); 
-  MI <- matrix(,M,100)
+  MI <- matrix(0,M,100)
   MI[,1] <- myMutualInformationZ(HSample$ZSample,1:10)
   vec.resampling <- c(TRUE)
 

@@ -17,6 +17,7 @@ MCMCKernel <- function(data, H.mc.init, alpha.t, hyperparamPrior,hyperparamAppro
   # model:  piColBipartiteSBM or iidColBipartiteSBM
   # nbIterMCMC :  Number of it?rations
   
+  if(is.null(paramsMCMC$opPrint)){paramsMCMC$opPrint = TRUE}
   ### variables latentes et param?tres
   if( !(model %in% c('piColSBM','iidColSBM'))){stop('Mispecified model')}
   if( !(emissionDist %in% c('poisson','bernoulli'))){stop('Mispecified emission distribution')}
@@ -72,12 +73,14 @@ MCMCKernel <- function(data, H.mc.init, alpha.t, hyperparamPrior,hyperparamAppro
   
   for (iterMCMC in 2:B){
     
-    #print(iterMCMC)
+    if ((paramsMCMC$opPrint) & (iterMCMC%%100==0)){ 
+      print(iterMCMC)
+    }
     ################################################
     ############# simulation of connectParam
     ################################################
     
-    if (opEchan$connectParam == 1) {
+    if (opEchan$connectParam) {
       
       S  <- lapply(1:M,function(m){t(H.mc$Z[[m]]) %*% matrix(1,nbNodes[m],nbNodes[m]) %*% H.mc$Z[[m]]})
       SY  <- lapply(1:M,function(m){t(H.mc$Z[[m]]) %*% collecNetworks[[m]] %*% H.mc$Z[[m]]})
@@ -92,7 +95,7 @@ MCMCKernel <- function(data, H.mc.init, alpha.t, hyperparamPrior,hyperparamAppro
     ############# simulation of blockParam
     ################################################
     
-    if (opEchan$blockProp == 1) {
+    if (opEchan$blockProp) {
       
       S  <- t(sapply(1:M, function(m){colSums(H.mc$Z[[m]])}))
       
@@ -111,28 +114,30 @@ MCMCKernel <- function(data, H.mc.init, alpha.t, hyperparamPrior,hyperparamAppro
     ################################################
     #browser
     orderNetworks <-  sample(1:M,M,replace = FALSE)
-    for (m in orderNetworks){ # for all networks
+    if (opEchan$Z){ 
+      for (m in orderNetworks){ # for all networks
       
-      if (opEchan$Z){ 
-        n.m <- nbNodes[m]
-        orderNodes.m <- sample(1:n.m,n.m)
-        if(model=='iidColSBM'){log.pi.m <- log(H.mc$blockProp)}
-        if(model=='piColSBM'){log.pi.m <- log(H.mc$blockProp[m,])}
+      
+          n.m <- nbNodes[m]
+          orderNodes.m <- sample(1:n.m,n.m)
+          if(model=='iidColSBM'){log.pi.m <- log(H.mc$blockProp)}
+          if(model=='piColSBM'){log.pi.m <- log(H.mc$blockProp[m,])}
         
-        log.tau.m <- log(hyperparamApproxPost$collecTau[[m]])
-        Y.m <- collecNetworks[[m]]
-        IY.m <- 1-Y.m
-        diag(IY.m) <- 0
-        for (i in orderNodes.m){ ### for any node
-          if(emissionDist == 'bernoulli'){
-            logYRow.i <- matrix(Y.m[i,],nrow = 1) %*%H.mc$Z[[m]] %*%t(log(H.mc$connectParam)) +   matrix(IY.m[i,],nrow=1)%*%H.mc$Z[[m]] %*%t(log(1-H.mc$connectParam))
-          }
+          log.tau.m <- log(hyperparamApproxPost$collecTau[[m]])
+          Y.m <- collecNetworks[[m]]
+          IY.m <- 1-Y.m
+          diag(IY.m) <- 0
+          for (i in orderNodes.m){ ### for any node
+            #print(i)
+            if(emissionDist == 'bernoulli'){
+              logYRow.i <- matrix(Y.m[i,],nrow = 1) %*%H.mc$Z[[m]] %*%t(log(H.mc$connectParam)) +   matrix(IY.m[i,],nrow=1)%*%H.mc$Z[[m]] %*%t(log(1-H.mc$connectParam))
+            }
           logProbZRow.i  <- alpha.t * (logYRow.i + log.pi.m) + (1-alpha.t)*log.tau.m[i,]
           ProbZRow.i <- c(fromBtoTau(matrix(logProbZRow.i,nrow = 1), eps = 10^-10))
           H.mc$Z[[m]][i,] <- c(rmultinom(1,size=1,prob = ProbZRow.i))
-        } #end boucle sur nodes
-      }# end if echanZ  = TRUE
-    }# end boucle sur m 
+          } #end boucle sur nodes
+      }# end boucle sur m 
+    }# end if echanZ  = TRUE
     
     #############################################""   
     if(opSave){

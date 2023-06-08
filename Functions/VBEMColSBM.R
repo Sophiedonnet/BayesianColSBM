@@ -1,4 +1,4 @@
-VBEMColSBM = function(collecNetworks,hyperparamPrior,collecTau,estimOptions, emissionDist, model ){
+VBEMColSBM = function(data,hyperparamPrior,collecTau,estimOptions, emissionDist, model ){
 
   #
   if( !(model %in% c('piColSBM','iidColSBM'))){stop('Mispecified model')}
@@ -12,10 +12,9 @@ VBEMColSBM = function(collecNetworks,hyperparamPrior,collecTau,estimOptions, emi
   } 
 
   
-  
-  
-  M <- length(collecNetworks)
-  nbNodes <- sapply(collecNetworks,function(X)(nrow(X)))
+  collecNetworks <- data$collecNetworks
+  M <- data$M
+  nbNodes <- data$nbNodes
   K <-nrow(hyperparamPrior$connectParam$alpha)
   
   #-------------------- initialisation

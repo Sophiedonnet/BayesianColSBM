@@ -49,16 +49,22 @@ nbNodes <- sample(10*c(6:10),M,replace = TRUE)
 
 #---------  SIMULATION
 mySampler <- lapply(1:M, function(m){sampleSimpleSBM(nbNodes = nbNodes[m], blockProp =  blockPropTrue[m,],  connectParamTrue,directed = TRUE)})
-collecNetworks <- lapply(mySampler,function(l){Net.m <- l$networkData; diag(Net.m) <- 0; Net.m})
 
-mydata <- list(collecNetworks = collecNetworks, M= M, nbNodes = nbNodes)
+
+
+collecNetworks <- lapply(mySampler,function(l){Net.m <- l$networkData; diag(Net.m) <- 0; Net.m})
+noisyCollecNetworks <- noiseSampling(collecNetworks,propNoise = 0.2)
+
+
+
+mydata <- list(collecNetworks = noisyCollecNetworks, M= M, nbNodes = nbNodes)
 
 
 ###########################################################################################
 #------------------ VBEM 
 ###########################################################################################
 #--------------- init CollecTau
-initSimple <- lapply(collecNetworks,estimateSimpleSBM)
+initSimple <- lapply(noisyCollecNetworks,estimateSimpleSBM)
 myRef = which.max(sum(t(sapply(initSimple,function(m){m$nbBlocks}))))
 collecTau_init <- initCollecTau(initSimple, ref = myRef)
 KEstim <- initSimple[[myRef]]$nbBlocks[1]
@@ -76,7 +82,7 @@ estimOptionsVBEM <- list(maxIterVB = 1000,
                          valStopCritVB = 10^-10,
                          epsTau = 10^-3)
 nbNodes <-  t(sapply(initSimple, function(sbm){sbm$nbNodes}))
-resEstimVBEM  <- VBEMColSBM(collecNetworks,hyperparamPrior,collecTau_init,estimOptions = estimOptionsVBEM, emissionDist, model)
+resEstimVBEM  <- VBEMColSBM(mydata,hyperparamPrior,collecTau_init,estimOptions = estimOptionsVBEM, emissionDist, model)
 
 #------------------ Set ApproxPost
 
@@ -104,20 +110,20 @@ estimOptionsSMC$NB.iter.max  <- Inf # Inf
 #save(mydata,resSMC,hyperparamApproxPost,file='myTrialSMCResults.Rdata')
 
 estimOptionsSMC$op.SMC.classic <- FALSE
-resSCM <- SMCColSBM(data = mydata,hyperparamPrior,hyperparamApproxPost, emissionDist, model, estimOptionsSMC)
+resSMC <- resSCM <- SMCColSBM(data = mydata,hyperparamPrior,hyperparamApproxPost, emissionDist, model, estimOptionsSMC)
 
 plot(resSMC$alpha.vec,type='l')
 
 
 
 
-###################### Estim avec Kcol K true
+###################### Estim avec  K true
 
-par(mfrow=c(K,KCol))
+par(mfrow=c(K,K))
 for (k in 1:K){
-  for (l in 1:KCol){
+  for (l in 1:K){
  #   if ((k ==1) & (l==1)){
-      plot(density(resMCMC$seqConnectParam[k,l,extr]),main='alpha',xlim=c(0,1))
+      plot(density(resSMC$HSample_end$connectParamSample[k,l,],weights=resSMC$W.end),main='alpha',xlim=c(0,1),col='green')
 #    }else{
 #      lines(density(resMCMC$seqConnectParam[k,l,extr]))  
 #      }
@@ -127,7 +133,7 @@ for (k in 1:K){
 }
 
 #------------------------------------ 
-if(model=="iidColBipartiteSBM"){
+if(model=="iidColSBM"){
   par(mfrow=c(1,1))
   for (k in 1:K){
     if (k ==1){plot(density(resMCMC$seqBlockProp$row[k,extr]),main='pi_k',xlim = c(0,1))
@@ -149,7 +155,7 @@ if(model=="iidColBipartiteSBM"){
   
 }
 
-if(model=="piColBipartiteSBM"){
+if(model=="piColSBM"){
   par(mfrow=c(floor(M/2)+1,2))
   for (m in 1:M){
     for (k in 1:K){

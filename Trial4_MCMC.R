@@ -44,20 +44,23 @@ or <- order(diag(connectParamTrue$mean),decreasing = TRUE)
 connectParamTrue$mean <- connectParamTrue$mean[or,or]
 #-------  sizes of networks
 nbNodes <- sample(10*c(5:10),M,replace = TRUE)
-#nbNodes[1,] = c(150,200)
+nbNodes[1] = c(100)
 #nbNodes[5,] = c(30,20)
 
 #---------  SIMULATION
 
 mySampler <- lapply(1:M, function(m){sampleSimpleSBM(nbNodes = nbNodes[m], blockProp =  blockPropTrue[m,],  connectParamTrue,directed = TRUE)})
 collecNetworks <- lapply(mySampler,function(l){Net.m <- l$networkData; diag(Net.m) <- 0; Net.m})
-mydata <- list(collecNetworks = collecNetworks, M= M, nbNodes = nbNodes)
+propNoise = 0.1
+noisyCollecNetworks <- noiseSampling(collecNetworks,propNoise)
+rm(collecNetworks)
+mydata <- list(collecNetworks = noisyCollecNetworks, M= M, nbNodes = nbNodes)
 
 
 #######################################################
 #--------------- init CollecTau
 ##########################################################
-initSimple <- lapply(collecNetworks,estimateSimpleSBM)
+initSimple <- lapply(mydata$collecNetworks,estimateSimpleSBM)
 myRef = which.max(sum(t(sapply(initSimple,function(m){m$nbBlocks}))))
 collecTau_init <- initCollecTau(initSimple, ref = myRef)
 KEstim <- initSimple[[myRef]]$nbBlocks[1]
@@ -75,7 +78,7 @@ estimOptionsVBEM <- list(maxIterVB = 1000,
                      valStopCritVE = 10^-10,
                      valStopCritVB = 10^-10)
 nbNodes <-  t(sapply(initSimple, function(sbm){sbm$nbNodes}))
-resEstimVBEM  <- VBEMColSBM(collecNetworks,hyperparamPrior,collecTau_init,estimOptions = estimOptionsVBEM, emissionDist, model)
+resEstimVBEM  <- VBEMColSBM(mydata,hyperparamPrior,collecTau_init,estimOptions = estimOptionsVBEM, emissionDist, model)
 
 hyperparamApproxPost <- resEstimVBEM$hyperparamPost
 hyperparamApproxPost$collecTau <- resEstimVBEM$collecTau
@@ -100,7 +103,7 @@ if (model == 'piColSBM'){
   
 ###################### Estim avec Kcol K true
 
-paramsMCMC = list(nbIterMCMC = 2000)
+paramsMCMC = list(nbIterMCMC = 5000)
 H.mc.init <- H.mc.sim
 paramsMCMC$opEchan = list(connectParam = TRUE, blockProp = TRUE, Z = TRUE)
 if (!paramsMCMC$opEchan$connectParam){H.mc.init$connectParam <- connectParamTrue$mean}
@@ -113,7 +116,7 @@ if(!paramsMCMC$opEchan$Z){
     for (i in 1:n.m){H.mc.init$Z[[m]][i,Z.m[i]] = 1}
   }
 }
-#hyperparamApproxPost = NULL
+paramsMCMC$opPrint = TRUE
 alpha.t = 1
 data = mydata
 emissionDist = 'bernoulli'
@@ -123,13 +126,20 @@ opSave = TRUE
 resMCMC <- MCMCKernel(mydata, H.mc.init, alpha.t = 1, hyperparamPrior,hyperparamApproxPost = NULL, emissionDist = 'bernoulli', model =  'piColSBM',paramsMCMC, opSave= TRUE)
 
 burnin  = 1000 
-extr <- burnin:paramsMCMC$nbIterMCMC
+extr <- seq(burnin,paramsMCMC$nbIterMCMC,by=5)
 
 m = sample(1:M,1)
-apply(resMCMC$seqZ[[m]][,,extr],c(1,2),mean)[1:10,]
-resMCMC$seqZ[[m]][,,1][1:10,]
-hyperparamApproxPost$collecTau[[m]][1:10,]
+apply(resMCMC$seqZ[[m]][,,extr],c(1,2),mean)[1:5,]
+hyperparamApproxPost$collecTau[[m]][1:5,]
 
+#----------------------------------------------- 
+par(mfrow=c(K,K))
+for (k in 1:K){
+  for (l in 1:K){
+    plot(resMCMC$seqConnectParam[k,l,extr],main='alpha',col='green',type='l')
+    abline(h = (1-propNoise)*connectParamTrue$mean[k,l] + propNoise*(1-connectParamTrue$mean[k,l]))
+  }
+}
 
 
 par(mfrow=c(K,K))
@@ -137,7 +147,7 @@ for (k in 1:K){
   for (l in 1:K){
     plot(density(resMCMC$seqConnectParam[k,l,extr]),main='alpha',xlim=c(0,1),col='green')
     curve(dbeta(x,hyperparamApproxPost$connectParam$alpha[k,l],hyperparamApproxPost$connectParam$beta[k,l]),col='red',add=TRUE)
-    abline(v = connectParamTrue$mean)
+    abline(v = (1-propNoise)*connectParamTrue$mean[k,l] + propNoise*(1-connectParamTrue$mean[k,l]))
   }
 }
 
@@ -156,6 +166,7 @@ if(model=="iidColSBM"){
 
 if(model=="piColSBM"){
   par(mfrow=c(floor(M/2)+1,2))
+  if(M==1){par(mfrow=c(1,1))}
   for (m in 1:M){
     for (k in 1:K){
       if (k ==1){plot(density(resMCMC$seqBlockProp[m,k,extr]),main='pi_k',xlim = c(0,1),col='green')
