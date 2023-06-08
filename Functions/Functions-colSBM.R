@@ -30,8 +30,8 @@ rParamZ <- function(MC, hyperparam, emissionDist, model ,nbNodes){
   
   if(model == 'piColSBM'){
     #--------- Simul of blockPropSample  = array(dim = c(K,M,MC))
-    blockPropSample <- vapply(1:MC,function(mc){t(sapply(1:M,function(m){rdirichlet(1,hyperparam$blockProp[m,])}))},matrix(0,M,K))
-  }
+      blockPropSample <- vapply(1:MC,function(mc){t(sapply(1:M,function(m){rdirichlet(1,hyperparam$blockProp[m,])}))},matrix(0,M,K))
+    }
   
   
   # Sampling Z

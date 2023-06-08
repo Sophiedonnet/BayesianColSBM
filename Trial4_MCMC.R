@@ -25,7 +25,7 @@ model = 'piColSBM'
 #############################################################################################
 
 
-M = 1
+M = 2
 K  = 4
  
 #-----  block proportions simul iidColSBM 
@@ -44,14 +44,15 @@ or <- order(diag(connectParamTrue$mean),decreasing = TRUE)
 connectParamTrue$mean <- connectParamTrue$mean[or,or]
 #-------  sizes of networks
 nbNodes <- sample(10*c(5:10),M,replace = TRUE)
-nbNodes[1] = c(100)
+nbNodes[1] = c(40)
+nbNodes[2] = 30
 #nbNodes[5,] = c(30,20)
 
 #---------  SIMULATION
 
 mySampler <- lapply(1:M, function(m){sampleSimpleSBM(nbNodes = nbNodes[m], blockProp =  blockPropTrue[m,],  connectParamTrue,directed = TRUE)})
 collecNetworks <- lapply(mySampler,function(l){Net.m <- l$networkData; diag(Net.m) <- 0; Net.m})
-propNoise = 0.1
+propNoise = 0.2
 noisyCollecNetworks <- noiseSampling(collecNetworks,propNoise)
 rm(collecNetworks)
 mydata <- list(collecNetworks = noisyCollecNetworks, M= M, nbNodes = nbNodes)
@@ -89,7 +90,7 @@ hyperparamApproxPost$collecTau <- resEstimVBEM$collecTau
 ##################################
 
 
-HSample <- rParamZ(200, hyperparam = hyperparamApproxPost , emissionDist, model ,nbNodes)
+HSample <- rParamZ(1, hyperparam = hyperparamApproxPost, emissionDist, model ,nbNodes)
 mc <- 1
 H.mc.sim <- list(connectParam = HSample$connectParamSample[,,mc])
 H.mc.sim$Z <- lapply(1:M, function(m){HSample$ZSample[[m]][,,mc]})
@@ -98,6 +99,9 @@ if (model == 'iidColSBM'){
 }
 if (model == 'piColSBM'){
   H.mc.sim$blockProp <-  HSample$blockPropSample[,,1]
+  if(M==1){
+    H.mc.sim$blockProp <-  matrix(HSample$blockPropSample[,,1],nrow=1)
+  }
 }
 
   
@@ -132,7 +136,11 @@ m = sample(1:M,1)
 apply(resMCMC$seqZ[[m]][,,extr],c(1,2),mean)[1:5,]
 hyperparamApproxPost$collecTau[[m]][1:5,]
 
-#----------------------------------------------- 
+#####################################################################""" 
+#######################################   PLot
+###################################################################### 
+
+
 par(mfrow=c(K,K))
 for (k in 1:K){
   for (l in 1:K){
@@ -145,7 +153,7 @@ for (k in 1:K){
 par(mfrow=c(K,K))
 for (k in 1:K){
   for (l in 1:K){
-    plot(density(resMCMC$seqConnectParam[k,l,extr]),main='alpha',xlim=c(0,1),col='green')
+    plot(density(resMCMC$seqConnectParam[k,l,extr]),main=c(k,l),xlim=c(0,1),col='green')
     curve(dbeta(x,hyperparamApproxPost$connectParam$alpha[k,l],hyperparamApproxPost$connectParam$beta[k,l]),col='red',add=TRUE)
     abline(v = (1-propNoise)*connectParamTrue$mean[k,l] + propNoise*(1-connectParamTrue$mean[k,l]))
   }
@@ -171,7 +179,7 @@ if(model=="piColSBM"){
     for (k in 1:K){
       if (k ==1){plot(density(resMCMC$seqBlockProp[m,k,extr]),main='pi_k',xlim = c(0,1),col='green')
     }else{
-      lines(density(resMCMC$seqBlockProp[m,k,extr]),col='green')
+      lines(density(resMCMC$seqBlockProp[m,k,extr]),col='green',lty=2,lwd=2)
     }  
     curve(dbeta(x,hyperparamApproxPost$blockProp[m,k], sum(hyperparamApproxPost$blockProp[m,])-hyperparamApproxPost$blockProp[m,k]),col='red',add=TRUE)
     abline(v = blockPropTrue[m,k])
@@ -180,5 +188,46 @@ if(model=="piColSBM"){
 }
 
 
+#####################################
+##################  Proba d'être dans le même clusterpar VB
+
+for (m in 1:M){
+  plotMyMatrix(hyperparamApproxPost$collecTau[[m]] %*%t( hyperparamApproxPost$collecTau[[m]]))
+}
+VZZ <- hyperparamApproxPost$collecTau[[1]]%*%t(hyperparamApproxPost$collecTau[[2]])
+
+ZSample <- lapply(1:M,function(m){resMCMC$seqZ[[m]][,,extr]})
+postZSample <- transfZsampleIntoMatrix(ZSample)
 
 
+VZZ <- hyperparamApproxPost$collecTau[[1]]%*%t(hyperparamApproxPost$collecTau[[1]])
+
+UZZ  = matrix(0,nbNodes[1],nbNodes[1])
+for (i in 1:nbNodes[1]){
+  for (j in 1:nbNodes[1]){
+  UZZ[i,j] = mean(postZSample[[1]][i,]== postZSample[[1]][j,]) 
+  }
+}
+
+
+UZZ  = matrix(0,nbNodes[2],nbNodes[2])
+for (i in 1:nbNodes[2]){
+  for (j in 1:nbNodes[2]){
+    UZZ[i,j] = mean(postZSample[[2]][i,]== postZSample[[2]][j,]) 
+  }
+}
+VZZ <- hyperparamApproxPost$collecTau[[2]]%*%t(hyperparamApproxPost$collecTau[[2]])
+plotMyMatrix(UZZ)
+plotMyMatrix(VZZ)
+
+mean(abs(UZZ-1/2))
+mean(abs(VZZ-1/2))
+
+# 
+EntropyBernoulli = function(p){
+  -p * log2(p)  - (1-p)*log2 (1-p)
+}
+
+
+
+     

@@ -316,7 +316,7 @@ transfZsampleIntoMatrix = function(ZSample){
   for (m in 1:M){
     
     ZSample.m <- ZSample[[m]]
-    n.m <- nrow(ZSample[[m]])
+    n.m <- dim(ZSample[[m]])[1]
     
     matZ.m <- matrix(0,n.m,MC)
     for (mc in 1:MC){

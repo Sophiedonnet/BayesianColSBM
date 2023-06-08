@@ -56,9 +56,9 @@ MCMCKernel <- function(data, H.mc.init, alpha.t, hyperparamPrior,hyperparamAppro
     seqConnectParam = array(0,c(K,K,B))
     seqConnectParam[,,1] = H.mc$connectParam
     seqZ  = lapply(1:M,function(m){array(0,c(nbNodes[m],K,B))})
-    for (m in 1:M){
-      seqZ[[m]][,,1] = H.mc$Z[[m]]
-    }
+    #for (m in 1:M){
+    #  seqZ[[m]][,,1] = H.mc$Z[[m]]
+    #}
     if(model=='iidColSBM'){
       seqBlockProp = matrix(0,K,B)
       seqBlockProp[,1] = H.mc$blockProp
@@ -76,6 +76,37 @@ MCMCKernel <- function(data, H.mc.init, alpha.t, hyperparamPrior,hyperparamAppro
     if ((paramsMCMC$opPrint) & (iterMCMC%%100==0)){ 
       print(iterMCMC)
     }
+    ################################################
+    ############# simulation of Z 
+    ################################################
+    #browser
+    orderNetworks <-  sample(1:M,M,replace = FALSE)
+    if (opEchan$Z){ 
+      for (m in orderNetworks){ # for all networks
+        
+        
+        n.m <- nbNodes[m]
+        orderNodes.m <- sample(1:n.m,n.m)
+        if(model=='iidColSBM'){log.pi.m <- log(H.mc$blockProp)}
+        if(model=='piColSBM'){log.pi.m <- log(H.mc$blockProp[m,])}
+        
+        log.tau.m <- log(hyperparamApproxPost$collecTau[[m]])
+        Y.m <- collecNetworks[[m]]
+        IY.m <- 1-Y.m
+        diag(IY.m) <- 0
+        for (i in orderNodes.m){ ### for any node
+          #print(i)
+          if(emissionDist == 'bernoulli'){
+            logYRow.i.1 <- matrix(Y.m[i,],nrow = 1) %*%H.mc$Z[[m]] %*%t(log(H.mc$connectParam)) +   matrix(IY.m[i,],nrow=1)%*%H.mc$Z[[m]] %*%t(log(1-H.mc$connectParam))
+            logYRow.i.2 <- matrix(Y.m[,i],nrow = 1) %*%H.mc$Z[[m]] %*%log(H.mc$connectParam) +   matrix(IY.m[,i],nrow=1)%*%H.mc$Z[[m]] %*%log(1-H.mc$connectParam)
+            logYRow.i <- logYRow.i.1 + logYRow.i.2
+          }
+          logProbZRow.i  <- alpha.t * (logYRow.i + log.pi.m) + (1-alpha.t)*log.tau.m[i,]
+          ProbZRow.i <- c(fromBtoTau(matrix(logProbZRow.i,nrow = 1), eps = 10^-10))
+          H.mc$Z[[m]][i,] <- c(rmultinom(1,size=1,prob = ProbZRow.i))
+        } #end boucle sur nodes
+      }# end boucle sur m 
+    }# end if echanZ  = TRUE
     ################################################
     ############# simulation of connectParam
     ################################################
@@ -109,35 +140,7 @@ MCMCKernel <- function(data, H.mc.init, alpha.t, hyperparamPrior,hyperparamAppro
       }
     }
     
-    ################################################
-    ############# simulation of Z 
-    ################################################
-    #browser
-    orderNetworks <-  sample(1:M,M,replace = FALSE)
-    if (opEchan$Z){ 
-      for (m in orderNetworks){ # for all networks
-      
-      
-          n.m <- nbNodes[m]
-          orderNodes.m <- sample(1:n.m,n.m)
-          if(model=='iidColSBM'){log.pi.m <- log(H.mc$blockProp)}
-          if(model=='piColSBM'){log.pi.m <- log(H.mc$blockProp[m,])}
-        
-          log.tau.m <- log(hyperparamApproxPost$collecTau[[m]])
-          Y.m <- collecNetworks[[m]]
-          IY.m <- 1-Y.m
-          diag(IY.m) <- 0
-          for (i in orderNodes.m){ ### for any node
-            #print(i)
-            if(emissionDist == 'bernoulli'){
-              logYRow.i <- matrix(Y.m[i,],nrow = 1) %*%H.mc$Z[[m]] %*%t(log(H.mc$connectParam)) +   matrix(IY.m[i,],nrow=1)%*%H.mc$Z[[m]] %*%t(log(1-H.mc$connectParam))
-            }
-          logProbZRow.i  <- alpha.t * (logYRow.i + log.pi.m) + (1-alpha.t)*log.tau.m[i,]
-          ProbZRow.i <- c(fromBtoTau(matrix(logProbZRow.i,nrow = 1), eps = 10^-10))
-          H.mc$Z[[m]][i,] <- c(rmultinom(1,size=1,prob = ProbZRow.i))
-          } #end boucle sur nodes
-      }# end boucle sur m 
-    }# end if echanZ  = TRUE
+    
     
     #############################################""   
     if(opSave){

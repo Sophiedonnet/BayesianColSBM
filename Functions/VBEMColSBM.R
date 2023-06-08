@@ -113,7 +113,12 @@ Estep <- function(collecNetworks,M, nNodes,K,collecTau,hyperparamPost,estimOptio
         }
         l3_m  <- matrix(DiblockProp_m,nrow = nbNodes[m],ncol = K,byrow = TRUE)
         if(emissionDist == 'bernoulli'){
-          lY_m  <- collecNetworks[[m]] %*% tcrossprod(collecTau[[m]],DiGAlpha- DiGAlphaBeta)  +  (1-collecNetworks[[m]]) %*% tcrossprod(collecTau[[m]],DiGBeta- DiGAlphaBeta)
+          Y_m <- collecNetworks[[m]]
+          IY_m <- 1-collecNetworks[[m]]
+          diag(IY_m) <- 0 
+          lY_m_1  <- Y_m %*% tcrossprod(collecTau[[m]],DiGAlpha- DiGAlphaBeta)  +  IY_m %*% tcrossprod(collecTau[[m]],DiGBeta- DiGAlphaBeta)
+          lY_m_2  <- crossprod(Y_m , collecTau[[m]])%*% (DiGAlpha- DiGAlphaBeta)  +  crossprod(IY_m,collecTau[[m]])%*% (DiGBeta- DiGAlphaBeta)
+          lY_m <- lY_m_1 + lY_m_2
         }
         
         if(emissionDist == 'poisson'){
