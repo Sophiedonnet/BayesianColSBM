@@ -89,6 +89,9 @@ Func.search <- function(HSample,mc,model) {
   }
   if (model == 'piColSBM'){
     H.mc$blockProp <- HSample$blockPropSample[,,mc]
+    if(M==1){
+      H.mc$blockProp <- matrix(H.mc$blockProp,nrow=1)
+    }
   }
   return(H.mc)
 }

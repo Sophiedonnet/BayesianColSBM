@@ -42,6 +42,7 @@ if(model=='piColSBM'){
 
 #-----  connectivity matrix
 connectParamTrue <- list(mean = round( matrix(rbeta(K*K,1/1.1,1/1.1), K, K)  ,9))
+diag(connectParamTrue$mean) <- seq(0.9,0.1,len=K)
 or <- order(diag(connectParamTrue$mean),decreasing = TRUE)
 connectParamTrue$mean <- connectParamTrue$mean[or,or]
 #-------  sizes of networks
@@ -50,10 +51,10 @@ nbNodes <- sample(10*c(6:10),M,replace = TRUE)
 #---------  SIMULATION
 mySampler <- lapply(1:M, function(m){sampleSimpleSBM(nbNodes = nbNodes[m], blockProp =  blockPropTrue[m,],  connectParamTrue,directed = TRUE)})
 
-
+propNoise = 0.1
 
 collecNetworks <- lapply(mySampler,function(l){Net.m <- l$networkData; diag(Net.m) <- 0; Net.m})
-noisyCollecNetworks <- noiseSampling(collecNetworks,propNoise = 0.2)
+noisyCollecNetworks <- noiseSampling(collecNetworks,propNoise)
 
 
 
@@ -74,6 +75,19 @@ print(c(K,KEstim))
 
 hyperparamPrior <- setHyperparamPrior(M,K, emissionDist, model)
 
+
+############################################### 
+########### ORACLE 
+#################################################
+S <- vapply(1:M,function(m){t(mySampler[[m]]$indMemberships) %*% collecNetworks[[m]] %*% mySampler[[m]]$indMemberships},matrix(0,K,K))
+S <- apply(S,c(1,2),sum)
+N <- vapply(1:M,function(m){t(mySampler[[m]]$indMemberships) %*% matrix(1,nbNodes[m],nbNodes[m]) %*% mySampler[[m]]$indMemberships},matrix(0,K,K))
+N <- apply(N,c(1,2),sum)
+connectParamOracle <- S/N
+(1-propNoise)*connectParamTrue$mean  + propNoise*(1-connectParamTrue$mean)
+############################################################
+######################## VB ###############################
+#############################################################
 #------------- variational estim 
 
 estimOptionsVBEM <- list(maxIterVB = 1000,
@@ -114,8 +128,33 @@ resSMC <- resSCM <- SMCColSBM(data = mydata,hyperparamPrior,hyperparamApproxPost
 
 plot(resSMC$alpha.vec,type='l')
 
+###########################################################################################
+#------------------  MCMC 
+###########################################################################################
+HSample <- rParamZ(1, hyperparam = hyperparamApproxPost, emissionDist, model ,nbNodes)
+H.mc.init <- list(connectParam = HSample$connectParamSample[,,1])
+if (model == 'iidColSBM'){
+  H.mc.init$blockProp <- HSample$blockPropSample[,1]
+}
+if (model == 'piColSBM'){
+  H.mc.init$blockProp <-  HSample$blockPropSample[,,1]
+  if(M==1){
+    H.mc.init$blockProp <-  matrix(HSample$blockPropSample[,,1],nrow=1)
+  }
+}
+H.mc.init$Z <- lapply(1:M, function(m){HSample$ZSample[[m]][,,1]})
 
+paramsMCMC = list(nbIterMCMC = 20000)
+paramsMCMC$opEchan = list(connectParam = TRUE, blockProp = TRUE, Z = TRUE)
+paramsMCMC$opPrint = TRUE
+alpha.t = 1
+emissionDist = 'bernoulli'
+model =  'piColSBM'
+opSave = TRUE
+resMCMC <- MCMCKernel(mydata, H.mc.init, alpha.t = 1, hyperparamPrior,hyperparamApproxPost = NULL, emissionDist = 'bernoulli', model =  'piColSBM',paramsMCMC, opSave= TRUE)
 
+burnin  = 1000 
+extr <- seq(burnin,paramsMCMC$nbIterMCMC,by=5)
 
 ###################### Estim avec  K true
 
@@ -124,11 +163,10 @@ for (k in 1:K){
   for (l in 1:K){
  #   if ((k ==1) & (l==1)){
       plot(density(resSMC$HSample_end$connectParamSample[k,l,],weights=resSMC$W.end),main='alpha',xlim=c(0,1),col='green')
-#    }else{
-#      lines(density(resMCMC$seqConnectParam[k,l,extr]))  
-#      }
-    curve(dbeta(x,hyperparamApproxPost$connectParam$alpha[k,l],hyperparamApproxPost$connectParam$beta[k,l]),col='red',add=TRUE)
-    abline(v = connectParamTrue$mean[k,l])
+      lines(density(resMCMC$seqConnectParam[k,l,extr]),col='magenta',type='l',lty=3)
+      
+      curve(dbeta(x,hyperparamApproxPost$connectParam$alpha[k,l],hyperparamApproxPost$connectParam$beta[k,l]),col='red',add=TRUE)
+      abline(v = (1-propNoise)*connectParamTrue$mean[k,l]  + propNoise*(1-connectParamTrue$mean[k,l]))
   }
 }
 
