@@ -151,7 +151,7 @@ SMCColSBM<- function(data,hyperparamPrior,hyperparamApproxPost, emissionDist, mo
   #--------------------- 
   alpha.vec <- c(alpha.t);
   vec.log.ratio.Z <- c(0); 
-  MI <- matrix(0,M,100)
+  MI <- matrix(0,M,100000)
   MI[,1] <- myMutualInformationZ(HSample$ZSample,1:10)
   vec.resampling <- c(TRUE)
 

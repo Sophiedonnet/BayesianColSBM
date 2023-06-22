@@ -220,8 +220,11 @@ VZZ <- hyperparamApproxPost$collecTau[[2]]%*%t(hyperparamApproxPost$collecTau[[2
 plotMyMatrix(UZZ)
 plotMyMatrix(VZZ)
 
-mean(abs(UZZ-1/2))
-mean(abs(VZZ-1/2))
+# 1/2 = bordel absolu. 
+mean(abs(UZZ-1/2)) # MCMC 
+mean(abs(VZZ-1/2)) # VB 
+hist(abs(UZZ-1/2))
+hist(abs(VZZ-1/2))
 
 # 
 EntropyBernoulli = function(p){

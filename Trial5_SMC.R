@@ -13,7 +13,8 @@ library(gtools)
 library(DescTools)
 sapply(list.files(paste0(getwd(),'/Functions'),full.names = TRUE), source)
 
-
+#--------------------------------------- 
+pathtoresSimu <- paste0(getwd(),'/Simu/Res_SIMU_2023806_22')
 
 
 emissionDist = 'bernoulli'
@@ -60,6 +61,10 @@ noisyCollecNetworks <- noiseSampling(collecNetworks,propNoise)
 
 mydata <- list(collecNetworks = noisyCollecNetworks, M= M, nbNodes = nbNodes)
 
+names_file_data <- paste0(pathtoresSimu,'/mySimu.Rdata')
+save(mydata,file = names_file_data )
+
+
 
 ###########################################################################################
 #------------------ VBEM 
@@ -94,7 +99,7 @@ estimOptionsVBEM <- list(maxIterVB = 1000,
                          maxIterVE = 100,
                          valStopCritVE = 10^-10,
                          valStopCritVB = 10^-10,
-                         epsTau = 10^-3)
+                         epsTau = 10^-10)
 nbNodes <-  t(sapply(initSimple, function(sbm){sbm$nbNodes}))
 resEstimVBEM  <- VBEMColSBM(mydata,hyperparamPrior,collecTau_init,estimOptions = estimOptionsVBEM, emissionDist, model)
 
@@ -103,7 +108,8 @@ resEstimVBEM  <- VBEMColSBM(mydata,hyperparamPrior,collecTau_init,estimOptions =
 hyperparamApproxPost <- resEstimVBEM$hyperparamPost
 hyperparamApproxPost$collecTau <- resEstimVBEM$collecTau
 
-
+names_file_VB <- paste0(pathtoresSimu,'/myResVBEM.Rdata')
+save(hyperparamApproxPost, hyperparamPrior, file = names_file_VB )
 
 
 ###########################################################################################
@@ -118,106 +124,101 @@ estimOptionsSMC$opSave <- FALSE
 estimOptionsSMC$op.parallel  <- list(os =  .Platform$OS.type, mc.cores = 4); 
 estimOptionsSMC$op.print<- TRUE
 estimOptionsSMC$NB.iter.max  <- Inf # Inf
-
-#estimOptionsSMC$op.SMC.classic <- TRUE
-#resSMC_classic <- SMCColSBM(data = mydata,hyperparamPrior,hyperparamApproxPost = NULL, emissionDist, model, estimOptionsSMC)
-#save(mydata,resSMC,hyperparamApproxPost,file='myTrialSMCResults.Rdata')
-
 estimOptionsSMC$op.SMC.classic <- FALSE
-resSMC <- resSCM <- SMCColSBM(data = mydata,hyperparamPrior,hyperparamApproxPost, emissionDist, model, estimOptionsSMC)
+resSMC <- SMCColSBM(data = mydata,hyperparamPrior,hyperparamApproxPost, emissionDist, model, estimOptionsSMC)
 
-plot(resSMC$alpha.vec,type='l')
+names_file_SMC <- paste0(pathtoresSimu,'/myResSMC.Rdata')
+save(resSMC,estimOptionsSMC , file = names_file_SMC )
 
-###########################################################################################
-#------------------  MCMC 
-###########################################################################################
-HSample <- rParamZ(1, hyperparam = hyperparamApproxPost, emissionDist, model ,nbNodes)
-H.mc.init <- list(connectParam = HSample$connectParamSample[,,1])
-if (model == 'iidColSBM'){
-  H.mc.init$blockProp <- HSample$blockPropSample[,1]
-}
-if (model == 'piColSBM'){
-  H.mc.init$blockProp <-  HSample$blockPropSample[,,1]
-  if(M==1){
-    H.mc.init$blockProp <-  matrix(HSample$blockPropSample[,,1],nrow=1)
-  }
-}
-H.mc.init$Z <- lapply(1:M, function(m){HSample$ZSample[[m]][,,1]})
+estimOptionsSMC$op.SMC.classic <- TRUE
+rm(hyperparamApproxPost)
+resSMC_classic <- SMCColSBM(data = mydata,hyperparamPrior,hyperparamApproxPost = NULL, emissionDist, model, estimOptionsSMC)
+names_file_SMC_classic <- paste0(pathtoresSimu,'/myResSMC_classic.Rdata')
+save(resSMC,estimOptionsSMC , file = names_file_SMC_classic )
 
-paramsMCMC = list(nbIterMCMC = 20000)
-paramsMCMC$opEchan = list(connectParam = TRUE, blockProp = TRUE, Z = TRUE)
-paramsMCMC$opPrint = TRUE
-alpha.t = 1
-emissionDist = 'bernoulli'
-model =  'piColSBM'
-opSave = TRUE
-resMCMC <- MCMCKernel(mydata, H.mc.init, alpha.t = 1, hyperparamPrior,hyperparamApproxPost = NULL, emissionDist = 'bernoulli', model =  'piColSBM',paramsMCMC, opSave= TRUE)
+ 
+###################################################
+################ PLOT Post 
+#######################################################"
+load(file =  paste0(pathtoresSimu,'/myResVBEM.Rdata'))
 
-burnin  = 1000 
-extr <- seq(burnin,paramsMCMC$nbIterMCMC,by=5)
+############## rho_h
+par(mfrow=c(1,1))
+plot(resSMC_classic$alpha.vec,type='l')
+lines(resSMC$alpha.vec,col='red')
 
-###################### Estim avec  K true
+#############  # plot sum alpha_{kl}
+par(mfrow=c(1,1))
+plot(density(apply(resSMC_classic$HSample_end$connectParamSample,c(3),sum),weights=resSMC_classic$W.end),main='alpha',col='green')
+lines(density(apply(resSMC$HSample_end$connectParamSample,c(3),sum),weights=resSMC$W.end),col='magenta')
+simu_ApproxPost <- rParamZ(10000,hyperparam = hyperparamApproxPost,emissionDist = 'bernoulli',model = model,nbNodes = nbNodes)
+lines(density(apply(simu_ApproxPost$connectParamSample,c(3),sum)),col='red')
 
-par(mfrow=c(K,K))
+##################################################### 
+
+par(mfrow=c(1,1))
 for (k in 1:K){
-  for (l in 1:K){
- #   if ((k ==1) & (l==1)){
-      plot(density(resSMC$HSample_end$connectParamSample[k,l,],weights=resSMC$W.end),main='alpha',xlim=c(0,1),col='green')
-      lines(density(resMCMC$seqConnectParam[k,l,extr]),col='magenta',type='l',lty=3)
-      
-      curve(dbeta(x,hyperparamApproxPost$connectParam$alpha[k,l],hyperparamApproxPost$connectParam$beta[k,l]),col='red',add=TRUE)
-      abline(v = (1-propNoise)*connectParamTrue$mean[k,l]  + propNoise*(1-connectParamTrue$mean[k,l]))
-  }
-}
-
-#------------------------------------ 
-if(model=="iidColSBM"){
-  par(mfrow=c(1,1))
-  for (k in 1:K){
-    if (k ==1){plot(density(resMCMC$seqBlockProp$row[k,extr]),main='pi_k',xlim = c(0,1))
-      }else{
-        lines(density(resMCMC$seqBlockProp$row[k,extr]))
-    }  
-    curve(dbeta(x,hyperparamApproxPost$blockProp$row[k], sum(hyperparamApproxPost$blockProp$row)-hyperparamApproxPost$blockProp$row[k]),col='red',add=TRUE)
-    abline(v = blockPropTrue$row[1,k])
-  }
-  
-  for (l in 1:KCol){
-    if (l ==1){plot(density(resMCMC$seqBlockProp$col[l,extr]),main='rho_k',xlim = c(0,1))
-    }else{
-      lines(density(resMCMC$seqBlockProp$col[l,extr]))
-    }  
-    curve(dbeta(x,hyperparamApproxPost$blockProp$col[l], sum(hyperparamApproxPost$blockProp$col)-hyperparamApproxPost$blockProp$col[l]),col='red',add=TRUE)
-    abline(v = blockPropTrue$col[1,l])
-  }
-  
-}
-
-if(model=="piColSBM"){
-  par(mfrow=c(floor(M/2)+1,2))
-  for (m in 1:M){
-    for (k in 1:K){
-      if (k ==1){plot(density(resMCMC$seqBlockProp$row[m,k,extr]),main='pi_k',xlim = c(0,1))
-    }else{
-      lines(density(resMCMC$seqBlockProp$row[m,k,extr]))
-    }  
-    curve(dbeta(x,hyperparamApproxPost$blockProp$row[m,k], sum(hyperparamApproxPost$blockProp$row[m,])-hyperparamApproxPost$blockProp$row[m,k]),col='red',add=TRUE)
-    abline(v = blockPropTrue$row[m,k])
-    }
+  if (k ==1){plot(density(resSMC_classic$HSample_end$connectParamSample[k,k,],weights=resSMC_classic$W.end),main='alphakk',col='green')
+  }else{
+    lines(density(resSMC_classic$HSample_end$connectParamSample[k,k,],weights=resSMC_classic$W.end),col='green')
   }  
-  par(mfrow=c(floor(M/2)+1,2))
-  for (m in 1:M){
-    for (k in 1:KCol){
-      if (k ==1){plot(density(resMCMC$seqBlockProp$col[m,k,extr]),main='pi_k',xlim = c(0,1))
-      }else{
-        lines(density(resMCMC$seqBlockProp$col[m,k,extr]))
-      }  
-      curve(dbeta(x,hyperparamApproxPost$blockProp$col[m,k], sum(hyperparamApproxPost$blockProp$col[m,])-hyperparamApproxPost$blockProp$col[m,k]),col='red',add=TRUE)
-      abline(v = blockPropTrue$col[m,k])
-    }
+  curve(dbeta(x,hyperparamApproxPost$blockProp[k], sum(hyperparamApproxPost$blockProp)-hyperparamApproxPost$blockProp[k]),col='red',add=TRUE)
+  lines(density(resSMC$HSample_end$connectParamSample[k,k,],weights=resSMC$W.end),col='magenta')
+}
+
+
+plot(density(apply(resSMC_classic$HSample_end$connectParamSample,c(3),sum),weights=resSMC_classic$W.end),main='alpha',col='green')
+lines(density(apply(resSMC$HSample_end$connectParamSample,c(3),sum),weights=resSMC$W.end),col='magenta')
+simu_ApproxPost <- rParamZ(10000,hyperparam = hyperparamApproxPost,emissionDist = 'bernoulli',model = model,nbNodes = nbNodes)
+lines(density(apply(simu_ApproxPost$connectParamSample,c(3),sum)),col='red')
+
+
+####################################################### 
+
+###################
+
+par(mfrow=c(1,1))
+for (k in 1:K){
+  if (k ==1){plot(density(resSMC_classic$HSample_end$blockPropSample[1,k,],weights=resSMC_classic$W.end),col='green',main='pi_k',xlim = c(0,1))
+    }else{
+    lines(density(resSMC_classic$HSample_end$blockPropSample[1,k,],weights=resSMC_classic$W.end),col='green')
+    }  
+    #curve(dbeta(x,hyperparamApproxPost$blockProp[k], sum(hyperparamApproxPost$blockProp)-hyperparamApproxPost$blockProp[k]),col='red',add=TRUE)
+    lines(density(resSMC$HSample_end$blockPropSample[1,k,],weights=resSMC$W.end),col='magenta')
+}
+  
+################################### 
+#####################################
+##################  Proba d'être dans le même clusterpar VB
+############################################
+
+ZZ_VB <- hyperparamApproxPost$collecTau[[1]]%*%t(hyperparamApproxPost$collecTau[[1]])
+
+ZSample <- lapply(1:M,function(m){resSMC$HSample_end$ZSample[[m]]})
+postZSample <- transfZsampleIntoMatrix(ZSample)
+ZZ_SMC  = matrix(0,nbNodes[1],nbNodes[1])
+for (i in 1:nbNodes[1]){
+  for (j in 1:nbNodes[1]){
+    ZZ_SMC [i,j] = sum(resSMC$W.end*(postZSample[[1]][i,]== postZSample[[1]][j,])) 
+  }
+}
+
+ZSample <- lapply(1:M,function(m){resSMC_classic$HSample_end$ZSample[[m]][,,extr]})
+postZSample <- transfZsampleIntoMatrix(ZSample)
+ZZ_SMC_classic  = matrix(0,nbNodes[1],nbNodes[1])
+for (i in 1:nbNodes[1]){
+  for (j in 1:nbNodes[1]){
+    ZZ_SMC_classic [i,j] = sum(resSMC_classic$W.end*(postZSample[[1]][i,]== postZSample[[1]][j,])) 
   }
 }
 
 
-
+plotMyMatrix(ZZ_VB)
+plotMyMatrix(ZZ_SMC-ZZ_VB,plotOptions = list(legend = TRUE))
+plotMyMatrix(ZZ_SMC-ZZ_SMC_classic,plotOptions = list(legend = TRUE))
+plot(ZZ_SMC,ZZ_SMC_classic); abline(a=0,b = 1)
+plot(ZZ_VB,ZZ_SMC);abline(a=0,b = 1)
+hist(ZZ_VB)
+hist(ZZ_SMC)
+hist(ZZ_SMC_classic)
 
