@@ -37,22 +37,30 @@ names(food_webs)<- site_names
 #########################################################"
 
 net <- 'simple' # collec
-estim <- FALSE # 'No' # "Simple",'iidColSbm'
+net <- 'collec'
+estim <- TRUE # 'No' # "Simple",'iidColSbm'
+model <- 'piColSBM'
+
 #------------------ 
 
 if(net=='simple'){
   pathtores <- paste0(getwd(),'/dataThomson/res_estim_simple')
-  extr = 1 
+  extr = 3
 }else{
+  if(model=='iidColSbm'){
   pathtores <- paste0(getwd(),'/dataThomson/res_estim_iidColSbm')
+  }
+  if(model=='piColSbm'){
+    pathtores <- paste0(getwd(),'/dataThomson/res_estim_piColSbm')
+  }
   extr = 1:3
 }
 #---------------- collec networks
 collecNetworks  = list()
 nbNodes <- rep(0,length(extr))
-for (i in extr){
-  name_i <- site_names[i]
-  Li <- food_webs[[i]]
+for (i in 1:length(extr)){
+  name_i <- site_names[extr[i]]
+  Li <- food_webs[[extr[i]]]
   Mat <- Li$net
   nr <- Li$nr
   U <- order(rownames(Mat))
@@ -68,7 +76,7 @@ mydata <- list(collecNetworks  = collecNetworks, M = length(extr), nbNodes = nbN
 ########################
 
 emissionDist = 'bernoulli'
-model = 'iidColSBM'
+
 
 
 
@@ -79,9 +87,13 @@ model = 'iidColSBM'
 if(net == 'simple'){
   names_files_res <- paste0(pathtores,'/res_estim_',site_names[i],'_VB.Rdata')
 }
+if(net=='collec'){
+  names_files_res <- paste0(pathtores,'/res_estim_VB.Rdata')
+}
 
 
 if(estim){
+  
   ###########################################################################################
   #------------------ VBEM 
   ###########################################################################################
@@ -94,7 +106,7 @@ if(estim){
   
   #---------------  Prior distribution
   
-  hyperparamPrior <- setHyperparamPrior(M,KEstim, emissionDist, model)
+  hyperparamPrior <- setHyperparamPrior(mydata$M,KEstim, emissionDist, model)
   
   
   estimOptionsVBEM <- list(maxIterVB = 1000,
@@ -116,7 +128,40 @@ if(estim){
   load(file = names_files_res)
 }
 
+w <- apply(hyperparamApproxPost$collecTau[[1]],1,which.max)
+mu_post <- hyperparamApproxPost$connectParam$alpha/(hyperparamApproxPost$connectParam$alpha+hyperparamApproxPost$connectParam$beta)
 
+o <- order(rowSums(mu_post))
+plotMyMatrix(mu_post[o,o])
+
+mymat <- 1*(mu_post>0.004)
+
+plotMyMatrix(mymat)
+o <- c(4,,3,1,5)
+plotMyMatrix(mu_post[o,o])
+
+P <- permutations(5, 5)
+score <- sum(mu_post*lower.tri(mu_post))
+best_o <- 1:5 
+test_score <- rep(0,nrow(P))
+test_score[1] <-score
+for(p in 2:nrow(P)){
+  print(p)
+  o <- P[p,]
+  M <- 1 * (mu_post[o,o]>0.01)
+  plotMyMatrix(M)
+  test_score[p]  <- mean(M*lower.tri(M,diag = FALSE))
+}
+
+my_o <- order(test_score,decreasing = TRUE)
+list_PLot <- list()
+i= 0
+for (i in 1:10){
+  i = i+1 
+  u <- P[my_o[i],]
+  plotMyMatrix(mu_post[u,u])
+  
+}
 
 ###########################################################################################
 #------------------  SMC 
@@ -154,8 +199,6 @@ plot(resSMC$alpha.vec,type='l')
 ##################  Proba d'être dans le même clusterpar VB
 ############################################
 M = 1
-
-
 ZZ_VB <- lapply(1:M,function(m){hyperparamApproxPost$collecTau[[m]]%*%t(hyperparamApproxPost$collecTau[[m]])})
 
 ZSample <- lapply(1:M,function(m){resSMC$HSample_end$ZSample[[m]]})

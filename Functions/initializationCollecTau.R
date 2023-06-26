@@ -1,5 +1,6 @@
 initCollecTau <- function(initSimple,ref){
   
+  M <- length(initSimple)
   KEstim <- initSimple[[ref]]$nbBlocks
   
   nbNodes <- t(sapply(initSimple, function(sbm){sbm$nbNodes}))

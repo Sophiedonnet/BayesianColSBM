@@ -43,6 +43,7 @@ disthyperparamPost <- function(hyperparamPost,hyperparamPostOld){
 ####################### Reorder groups row / cols. 
 reorderBlocks  <- function(hyperparamPost, collecTau ,model){
   
+  M <- length(collecTau)
   meanPost <- hyperparamPost$connectParam$alpha / (hyperparamPost$connectParam$alpha + hyperparamPost$connectParam$beta)
   alphaDiag <- diag(meanPost); 
   ord <- order(alphaDiag,decreasing = TRUE)
