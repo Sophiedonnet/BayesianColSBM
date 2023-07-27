@@ -60,6 +60,7 @@ Func.resampling <- function(HSample,Resample,model) {
   New.HSample <- list()
   New.HSample$connectParamSample = HSample$connectParamSample[,,Resample]
   New.HSample$ZSample < list()
+  M <- length(HSample$ZSample)
   for (m in 1:M){
     New.HSample$ZSample[[m]] <-   HSample$ZSample[[m]][,,Resample]
   }
@@ -83,6 +84,7 @@ Func.resampling <- function(HSample,Resample,model) {
 
 Func.search <- function(HSample,mc,model) {
   H.mc <- list(connectParam = HSample$connectParamSample[,,mc])
+  M <- length(HSample$ZSample)
   H.mc$Z <- lapply(1:M, function(m){HSample$ZSample[[m]][,,mc]})
   if (model == 'iidColSBM'){
     H.mc$blockProp <- HSample$blockPropSample[,mc]
@@ -223,6 +225,7 @@ SMCColSBM<- function(data,hyperparamPrior,hyperparamApproxPost, emissionDist, mo
         return(GMMB.m)
         }
   
+    #browser()
     if (os == "unix") {
       OUTPUT_MCMC <- mclapply(1:MC, f_MCMC, mc.preschedule = TRUE, mc.cores = op.parallel$mc.cores)
     }else{
@@ -260,9 +263,9 @@ SMCColSBM<- function(data,hyperparamPrior,hyperparamApproxPost, emissionDist, mo
     }
     condloglik.sample <- likelihood(data, HSample,emissionDist)
     log.rho <- logPrior.sample  +  condloglik.sample - logApproxPost.sample
-    log.rho[which(log.rho == -Inf)] = -1e4
-    log.rho[which(logApproxPost.sample == -Inf)] = -1e4
-    log.rho[which(log.rho == Inf)] = -1e4
+    log.rho[which(log.rho == -Inf)] = -1e10
+    log.rho[which(logApproxPost.sample == -Inf)] = -1e10
+    log.rho[which(log.rho == Inf)] = -1e10
     
     U.t = sum(W.t * log.rho)
     U <- c(U,U.t)

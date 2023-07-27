@@ -107,6 +107,14 @@ setHyperparamPrior <- function(M,K,emissionDist, model){
   return(hyperparamPrior)
 }
 
-
+xlogx <- function(x){
+  res = x
+  res[x>0] <- x[x>0]*log(x[x>0])
+}
+entropyBernoulli = function(p){
+  
+  xlogx(p) + xlogx(1-p)
+  
+}
 
 

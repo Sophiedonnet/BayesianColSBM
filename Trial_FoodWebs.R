@@ -37,9 +37,9 @@ names(food_webs)<- site_names
 #########################################################"
 
 net <- 'simple' # collec
-net <- 'collec'
-estim <- TRUE # 'No' # "Simple",'iidColSbm'
-model <- 'piColSBM'
+#net <- 'collec'
+estim <- FALSE # 'No' # "Simple",'iidColSbm'
+model <- 'iidColSBM'
 
 #------------------ 
 
@@ -85,7 +85,7 @@ emissionDist = 'bernoulli'
 ######################## VB ###############################
 #############################################################
 if(net == 'simple'){
-  names_files_res <- paste0(pathtores,'/res_estim_',site_names[i],'_VB.Rdata')
+  names_files_res <- paste0(pathtores,'/res_estim_',site_names[extr[i]],'_VB.Rdata')
 }
 if(net=='collec'){
   names_files_res <- paste0(pathtores,'/res_estim_VB.Rdata')
@@ -128,40 +128,43 @@ if(estim){
   load(file = names_files_res)
 }
 
-w <- apply(hyperparamApproxPost$collecTau[[1]],1,which.max)
-mu_post <- hyperparamApproxPost$connectParam$alpha/(hyperparamApproxPost$connectParam$alpha+hyperparamApproxPost$connectParam$beta)
 
-o <- order(rowSums(mu_post))
-plotMyMatrix(mu_post[o,o])
-
-mymat <- 1*(mu_post>0.004)
-
-plotMyMatrix(mymat)
-o <- c(4,,3,1,5)
-plotMyMatrix(mu_post[o,o])
-
-P <- permutations(5, 5)
-score <- sum(mu_post*lower.tri(mu_post))
-best_o <- 1:5 
-test_score <- rep(0,nrow(P))
-test_score[1] <-score
-for(p in 2:nrow(P)){
-  print(p)
-  o <- P[p,]
-  M <- 1 * (mu_post[o,o]>0.01)
-  plotMyMatrix(M)
-  test_score[p]  <- mean(M*lower.tri(M,diag = FALSE))
-}
-
-my_o <- order(test_score,decreasing = TRUE)
-list_PLot <- list()
-i= 0
-for (i in 1:10){
-  i = i+1 
-  u <- P[my_o[i],]
-  plotMyMatrix(mu_post[u,u])
-  
-}
+# w <- apply(hyperparamApproxPost$collecTau[[1]],1,which.max)
+# 
+# mu_post <- hyperparamApproxPost$connectParam$alpha/(hyperparamApproxPost$connectParam$alpha+hyperparamApproxPost$connectParam$beta)
+# 
+# 
+# o <- order(rowSums(mu_post))
+# plotMyMatrix(mu_post[o,o])
+# 
+# mymat <- 1*(mu_post>0.004)
+# 
+# plotMyMatrix(mymat)
+# o <- c(4,2,3,1,5)
+# plotMyMatrix(mu_post[o,o])
+# 
+# P <- permutations(5, 5)
+# score <- sum(mu_post*lower.tri(mu_post))
+# best_o <- 1:5 
+# test_score <- rep(0,nrow(P))
+# test_score[1] <-score
+# for(p in 2:nrow(P)){
+#   print(p)
+#   o <- P[p,]
+#   M <- 1 * (mu_post[o,o]>0.01)
+#   plotMyMatrix(M)
+#   test_score[p]  <- mean(M*lower.tri(M,diag = FALSE))
+# }
+# 
+# my_o <- order(test_score,decreasing = TRUE)
+# list_PLot <- list()
+# i= 0
+# for (i in 1:10){
+#   i = i+1 
+#   u <- P[my_o[i],]
+#   plotMyMatrix(mu_post[u,u])
+#   
+# }
 
 ###########################################################################################
 #------------------  SMC 
@@ -229,10 +232,12 @@ UVB <- ZZ_VB[[1]][upper.tri(ZZ_VB[[1]])]
 USMC <- ZZ_SMC[[1]][upper.tri(ZZ_SMC[[1]])]
 ZZ_DF <- cbind(UVB,USMC)
 names(ZZ_DF) <- c('VB','VBSMC')
+library(ggplot2)
 ggplot(ZZ_DF) + geom_points(aes(x=VB,y=VBSMC))
 par(mfrow=c(1,2))
 for (m in 1:M){
-  plot(ZZ_VB[[m]][w],ZZ_SMC[[m]][w])
+  plot(ZZ_VB[[m]],ZZ_SMC[[m]])
+  abline(a=0,b=1)
   plot(ZZ_VB[[m]],ZZ_SMC[[m]])
   
   abline(a=0,b=1)

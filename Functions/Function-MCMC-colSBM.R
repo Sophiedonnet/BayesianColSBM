@@ -31,7 +31,7 @@ MCMCKernel <- function(data, H.mc.init, alpha.t, hyperparamPrior,hyperparamAppro
   ###### Normal MCMC
   if (is.null(hyperparamApproxPost)){
     hyperparamApproxPost <- hyperparamPrior
-    hyperparamApproxPost$collecTau <- vector('list',data$M)
+    hyperparamApproxPost$collecTau <- vector('list',M)
     for (m in 1:M){
       if(model=='iidColSBM'){
         pi.m <- hyperparamPrior$blockProp
